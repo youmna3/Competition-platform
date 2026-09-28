@@ -24,7 +24,8 @@ supabase/migrations/          SQL migrations — run in filename order
   ..0003_security.sql         RLS policies, privileges, realtime
   ..0004_seed_reference.sql   original governorates, competitions, levels and six rubrics
   ..0005_add_demi_grade_6.sql additive DEMI Grade 6 rubric and competition
-supabase/tests/               SQL test-suite (123 assertions) + a tiny Supabase stub for plain Postgres
+  ..0006_rubric_version_management.sql immutable versions, drafts and publishing
+supabase/tests/               SQL test-suite (136 assertions) + a tiny Supabase stub for plain Postgres
 scripts/verify_rubrics.py     Checks rubrics.json against the PDF text (every word, weight, maximum)
 scripts/gen_seed.py           Regenerates migration 0004 from rubrics.json
 scripts/test_db.sh            Runs all migrations + SQL tests on a scratch Postgres
@@ -90,7 +91,7 @@ To deploy from the CLI instead: `npm i -g vercel && vercel --prod`, after settin
 | Admin | **Teams** | Register teams (unique ID, name, project, organization, grade/level, governorate) or **Import CSV/Excel**. There is a template to download. Assign one or more judges per team, or bulk-add judges to selected teams. |
 | Judge | **My evaluations** | Choose **DEMI** or **DECI**, then the grade/level, then an assigned team. Score each row 1–5 and add notes. Drafts save automatically. Submit when every core row is scored. |
 | Admin | **Evaluations** | Per-team progress. Open any judge's submission read-only, see its change history, and **reopen** it with a reason. |
-| Admin | **Rubric Management** | Browse all DEMI/DECI rubrics and open the real evaluation form in a side-effect-free, read-only preview. |
+| Admin | **Rubric Management** | Browse version history, edit a new draft visually, validate, preview, and publish immutable rubric versions. |
 | Everyone | **Leaderboard** | DEMI and DECI tabs, grade/level and governorate filters, a trophy on the top team of each category, ties shown as `=1`. The public sees only boards an admin has **published**. |
 | Admin | **Dashboard** | Totals, pending work, results by category and governorate, top teams, **Export all results** (.xlsx). |
 
@@ -130,7 +131,7 @@ The UI follows the iSchool brand guidelines (<https://brand.ischooltech.com>):
 # Rubric fidelity against the PDFs (needs pdftotext or the pypdf package)
 python3 scripts/verify_rubrics.py rubrics/pdf
 
-# Database: migrations + 123 assertions on a scratch Postgres 15/16
+# Database: migrations + 136 assertions on a scratch Postgres 15/16
 PGHOST=... PGPORT=... PGUSER=postgres scripts/test_db.sh
 scripts/test_concurrency.sh
 

@@ -75,6 +75,14 @@ export interface RubricTemplate {
   guidance: string;
   core_max: number;
   bonus_max: number;
+  family_id?: string;
+  version?: number;
+  lifecycle?: 'draft' | 'published' | 'archived';
+  based_on_id?: string | null;
+  created_by?: string | null;
+  published_at?: string | null;
+  published_by?: string | null;
+  updated_at?: string;
   sections: RubricSection[]; // core sections, ordered
   bonus: RubricSection | null;
 }
@@ -86,6 +94,7 @@ export interface Team {
   project_name: string;
   level_code: string;
   governorate_code: string;
+  template_id?: string;
   created_at: string;
   updated_at: string;
 }

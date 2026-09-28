@@ -15,9 +15,9 @@ Every check below was run against this codebase. They cover the eight verificati
 
 The verifier covers every Grade 6 title and description, all section weights, the 100-point core total, and the three-row 15-point bonus. The additive Grade 6 migration independently rejects an incorrect row count, section weight, or total, and `src/lib/scoring.test.ts` asserts the same structure.
 
-## 3–8. Database behaviour (`scripts/test_db.sh`, 123 assertions)
+## 3–8. Database behaviour (`scripts/test_db.sh`, 136 assertions)
 
-The suite runs all five migrations against PostgreSQL 16 with a Supabase auth stub. It then acts as the admin, three judges, a pending user and an anonymous visitor.
+The suite runs all six migrations against PostgreSQL 16 with a Supabase auth stub. It then acts as the admin, three judges, a pending user and an anonymous visitor.
 
 | Brief item | Evidence (assertions) |
 |---|---|
@@ -56,4 +56,4 @@ Screenshots are in `docs/screenshots/`.
 
 - `tsc --noEmit` (strict): clean.
 - `vite build`: succeeds.
-- `vitest`: 23 tests passing (scoring, seven-template consistency, ranking, import parsing, admin-route protection, and side-effect-free rubric preview).
+- `vitest`: 24 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation, admin-route protection, and side-effect-free rubric preview).

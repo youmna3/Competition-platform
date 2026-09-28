@@ -14,11 +14,12 @@ export function useFullExport() {
     setExporting(true);
     try {
       const ref = await loadReference();
-      const [teamResults, leaderboard, evaluations, scores, profiles, teams, audit, tpls] = await Promise.all([
+      const [teamResults, leaderboard, evaluations, scores, profiles, teams, audit] = await Promise.all([
         fetchTeamResults(), fetchLeaderboard(), fetchAllEvaluations(), fetchAllScores(), fetchProfiles(), fetchTeams(),
         fetchAudit({ limit: 5000 }),
-        Promise.all([...new Set(ref.competitions.map((c) => c.template_id))].map((id) => loadTemplate(id))),
       ]);
+      const templateIds = new Set([...ref.competitions.map((c) => c.template_id), ...evaluations.map((e) => e.template_id)]);
+      const tpls = await Promise.all([...templateIds].map((id) => loadTemplate(id)));
       const templates: Record<string, RubricTemplate> = Object.fromEntries(tpls.map((t) => [t.id, t]));
       await exportAllResults({ teamResults, leaderboard, evaluations, scores, profiles, teams, templates, audit });
       toast('success', 'Results workbook downloaded');

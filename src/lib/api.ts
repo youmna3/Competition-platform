@@ -48,14 +48,21 @@ export function loadReference(force = false): Promise<Reference> {
 // Rubrics
 // ---------------------------------------------------------------------------
 const templateCache = new Map<string, Promise<RubricTemplate>>();
-let scaleCache: Promise<ScoreLevel[]> | null = null;
+const scaleCache = new Map<string, Promise<ScoreLevel[]>>();
 
-export function loadScoreLevels(): Promise<ScoreLevel[]> {
-  if (!scaleCache) {
-    scaleCache = (async () => unwrap(await supabase.from('score_levels').select('*').order('value')) as ScoreLevel[])()
-      .catch((e) => { scaleCache = null; throw e; });
+export function loadScoreLevels(templateId?: string): Promise<ScoreLevel[]> {
+  const key = templateId ?? 'global';
+  let cached = scaleCache.get(key);
+  if (!cached) {
+    cached = (async () => {
+      if (templateId) {
+        return unwrap(await supabase.from('rubric_score_levels').select('value,label,description').eq('template_id', templateId).order('value')) as ScoreLevel[];
+      }
+      return unwrap(await supabase.from('score_levels').select('*').order('value')) as ScoreLevel[];
+    })().catch((e) => { scaleCache.delete(key); throw e; });
+    scaleCache.set(key, cached);
   }
-  return scaleCache;
+  return cached;
 }
 
 export function loadTemplate(templateId: string): Promise<RubricTemplate> {
@@ -83,6 +90,39 @@ export function loadTemplate(templateId: string): Promise<RubricTemplate> {
     templateCache.set(templateId, p);
   }
   return p;
+}
+
+export async function fetchRubricVersions(): Promise<RubricTemplate[]> {
+  return unwrap(await supabase.from('rubric_templates').select('*').order('family_id').order('version', { ascending: false })) as RubricTemplate[];
+}
+
+export async function createRubricDraft(sourceTemplateId: string): Promise<string> {
+  const id = unwrap(await supabase.rpc('admin_create_rubric_draft', { p_source_template: sourceTemplateId })) as string;
+  templateCache.delete(id); scaleCache.delete(id);
+  return id;
+}
+
+export interface RubricDraftPayload {
+  title: string; subtitle: string; scale_instruction: string; guidance: string;
+  score_levels: ScoreLevel[];
+  sections: { title: string; weight: number; is_bonus: boolean; criteria: { title: string; description: string }[] }[];
+}
+
+export async function saveRubricDraft(templateId: string, payload: RubricDraftPayload): Promise<void> {
+  unwrap(await supabase.rpc('admin_save_rubric_draft', { p_template_id: templateId, p_payload: payload }));
+  templateCache.delete(templateId); scaleCache.delete(templateId);
+}
+
+export async function publishRubric(templateId: string, teamHandling: 'keep_existing' | 'move_unevaluated'): Promise<void> {
+  unwrap(await supabase.rpc('admin_publish_rubric', { p_template_id: templateId, p_team_handling: teamHandling }));
+  templateCache.delete(templateId);
+  await loadReference(true);
+}
+
+export async function countTemplateEvaluations(templateId: string): Promise<number> {
+  const res = await supabase.from('evaluations').select('id', { count: 'exact', head: true }).eq('template_id', templateId).eq('status', 'submitted');
+  if (res.error) throw res.error;
+  return res.count ?? 0;
 }
 
 // ---------------------------------------------------------------------------

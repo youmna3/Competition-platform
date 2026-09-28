@@ -3,7 +3,7 @@ import { ChevronLeft, Eye } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import RubricForm from '@/components/RubricForm';
 import { Alert, Spinner } from '@/components/ui';
-import { loadReference, loadScoreLevels, loadTemplate } from '@/lib/api';
+import { fetchRubricVersions, loadReference, loadScoreLevels, loadTemplate } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import type { RubricTemplate, ScoreLevel } from '@/lib/types';
 
@@ -18,14 +18,15 @@ export default function RubricPreviewPage() {
     let cancelled = false;
     (async () => {
       try {
-        const ref = await loadReference();
-        const competition = ref.competitions.find((item) => item.template_id === templateId);
-        if (!competition) throw new Error('Rubric not found.');
-        const [rubric, levels] = await Promise.all([loadTemplate(templateId), loadScoreLevels()]);
+        const [ref, versions] = await Promise.all([loadReference(), fetchRubricVersions()]);
+        const version = versions.find((item) => item.id === templateId);
+        const competition = ref.competitions.find((item) => item.template_id === templateId || item.code === version?.family_id);
+        if (!competition || !version) throw new Error('Rubric not found.');
+        const [rubric, levels] = await Promise.all([loadTemplate(templateId), loadScoreLevels(templateId)]);
         if (cancelled) return;
         setTemplate(rubric);
         setScale(levels);
-        setLabel(`${competition.organization} · ${competition.label}`);
+        setLabel(`${competition.organization} · ${competition.label} · Version ${version.version} (${version.lifecycle})`);
       } catch (e) {
         if (!cancelled) setError(errorMessage(e));
       }

@@ -65,7 +65,8 @@ export default function EvaluationPage() {
         const comp = ref.competitions.find((c) => c.code === level?.competition_code);
         if (!comp) throw new Error('Team has no competition category.');
         const id = await startEvaluation(teamId); // idempotent: returns the existing evaluation if any
-        const [tpl, sc, ev] = await Promise.all([loadTemplate(comp.template_id), loadScoreLevels(), fetchEvaluation(id)]);
+        const pinnedTemplate = t.template_id ?? comp.template_id;
+        const [tpl, sc, ev] = await Promise.all([loadTemplate(pinnedTemplate), loadScoreLevels(pinnedTemplate), fetchEvaluation(id)]);
         if (cancelled) return;
         setTeam(t);
         setLevelLabel(`${level?.organization} · ${level?.label}`);

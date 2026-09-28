@@ -61,6 +61,16 @@ create function tests.arr(n5 int, other int, n_other int) returns int[] language
   select array_cat(array_fill(5, array[n5]), array_fill(other, array[n_other])) $$;
 grant execute on function tests.arr(int,int,int) to anon, authenticated;
 
+create function tests.rubric_payload(p_template text) returns jsonb language sql stable as $$
+  select jsonb_build_object(
+    'title', t.title, 'subtitle', t.subtitle, 'scale_instruction', t.scale_instruction, 'guidance', t.guidance,
+    'score_levels', (select jsonb_agg(jsonb_build_object('value',value,'label',label,'description',description) order by value) from rubric_score_levels where template_id=t.id),
+    'sections', (select jsonb_agg(jsonb_build_object('title',s.title,'weight',s.weight,'is_bonus',s.is_bonus,
+      'criteria',(select jsonb_agg(jsonb_build_object('title',c.title,'description',c.description) order by c.position) from rubric_criteria c where c.section_id=s.id)) order by s.position)
+      from rubric_sections s where s.template_id=t.id)
+  ) from rubric_templates t where t.id=p_template $$;
+grant execute on function tests.rubric_payload(text) to authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 0. Rubric integrity in the database
 -- -----------------------------------------------------------------------------
@@ -360,7 +370,41 @@ select tests.ok((select count(*) = 0 from get_leaderboard(p_competition := 'DEMI
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 10. Disabled judges lose access immediately
+-- 10. Rubric draft/version management
+-- -----------------------------------------------------------------------------
+select tests.login('j1'); set role authenticated;
+select tests.throws($$select admin_create_rubric_draft('DEMI_G4')$$, 'Administrator access required', 'judge cannot create rubric drafts');
+select tests.throws($$update rubric_templates set title='tampered' where id='DEMI_G4'$$, 'permission denied|row-level security', 'judge cannot edit rubric tables');
+reset role;
+
+select tests.login('admin'); set role authenticated;
+create temp table rubric_ids (k text primary key, v text); grant all on rubric_ids to authenticated;
+insert into rubric_ids values ('draft', admin_create_rubric_draft('DEMI_G4'));
+select tests.ok((select lifecycle='draft' and version=2 and based_on_id='DEMI_G4' from rubric_templates where id=(select v from rubric_ids where k='draft')), 'published rubric cloned to version 2 draft');
+select tests.ok((select count(*) from rubric_criteria where template_id=(select v from rubric_ids where k='draft'))=22, 'draft clone contains every core and bonus criterion');
+select tests.throws($$update rubric_templates set title='overwrite' where id='DEMI_G4'$$, 'permission denied', 'published rubric cannot be overwritten directly');
+
+select admin_save_rubric_draft((select v from rubric_ids where k='draft'),
+  jsonb_set(tests.rubric_payload((select v from rubric_ids where k='draft')), '{title}', '"Grade 4 revised"'));
+select tests.ok((select title from rubric_templates where id='DEMI_G4') <> 'Grade 4 revised', 'saving draft leaves published version unchanged');
+select tests.ok((select title from rubric_templates where id=(select v from rubric_ids where k='draft')) = 'Grade 4 revised', 'draft title saved');
+
+select admin_save_rubric_draft((select v from rubric_ids where k='draft'),
+  jsonb_set(tests.rubric_payload((select v from rubric_ids where k='draft')), '{sections,0,weight}', '15'));
+select tests.throws(format('select admin_publish_rubric(%L,%L)',(select v from rubric_ids where k='draft'),'keep_existing'), 'Core section weights|Invalid section weights', 'invalid draft cannot be published');
+select admin_save_rubric_draft((select v from rubric_ids where k='draft'),
+  jsonb_set(jsonb_set(jsonb_set(tests.rubric_payload('DEMI_G4'),'{title}','"Grade 4 revised"'),'{sections,0,criteria,0,description}','"Revised criterion description"'),'{score_levels,0,label}','"Needs Work"'));
+insert into teams(team_code,name,project_name,level_code,governorate_code) values('VR1','Version Ready','P','G4','CAI');
+select admin_publish_rubric((select v from rubric_ids where k='draft'),'move_unevaluated');
+select tests.ok((select template_id from competitions where code='DEMI_G4')=(select v from rubric_ids where k='draft'), 'publishing activates the new version');
+select tests.ok((select template_id from teams where team_code='VR1')=(select v from rubric_ids where k='draft'), 'explicit option moves unevaluated teams');
+select tests.ok((select template_id from teams where team_code='T1')='DEMI_G4', 'team with evaluations remains pinned to historical version');
+select tests.ok((select avg_core=89.5 from admin_team_results() where team_code='T1'), 'historical team result is preserved after rubric publication');
+select tests.ok((select label from rubric_score_levels where template_id=(select v from rubric_ids where k='draft') and value=1)='Needs Work', 'versioned scoring configuration published');
+reset role;
+
+-- -----------------------------------------------------------------------------
+-- 11. Disabled judges lose access immediately
 -- -----------------------------------------------------------------------------
 select tests.login('admin'); set role authenticated;
 update profiles set status = 'disabled' where email = 'judge3@example.com';
@@ -371,7 +415,7 @@ select tests.throws($$select start_evaluation((select id from public.teams where
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 11. Hard constraints
+-- 12. Hard constraints
 -- -----------------------------------------------------------------------------
 select tests.throws($$insert into evaluations (team_id, judge_id, template_id) select team_id, judge_id, template_id from evaluations limit 1$$, 'evaluations_team_judge_key', 'unique (team, judge) enforced');
 select tests.throws($$update evaluations set status = 'submitted', submitted_at = now(), core_scored_count = 3 where id = (select v from ids where k='e2') $$, 'submitted_complete', 'check constraint forbids incomplete submitted rows');

@@ -49,7 +49,7 @@ audit_log(actor, action, entity, team_id, evaluation_id, details jsonb)
 results_signal(competition_code, version)                          ← Realtime refresh trigger
 ```
 
-**Data-driven rubrics.** A single form component and a single set of SQL functions handle all seven rubrics. `rubrics/rubrics.json` is checked against every PDF by `scripts/verify_rubrics.py`. Grade 6 is installed by additive migration `20260928000005_add_demi_grade_6.sql`; the original migrations remain unchanged.
+**Data-driven, versioned rubrics.** A single form component and scoring engine handle all seven rubric families. Published versions are immutable. Administrators clone them into drafts, edit through validated RPCs, preview, and publish a new version. Every team is pinned to one version, so evaluations from different versions cannot be averaged together. Existing teams remain pinned by default; publishing can optionally move only teams that have no evaluations.
 
 ### Integrity guarantees in the database
 
@@ -92,6 +92,6 @@ Pending, rejected and disabled accounts see nothing.
 - `src/components/RubricForm.tsx` is one renderer for all seven templates. It covers the header, the scale legend, the sections with 1–5 radio buttons and notes, the bonus section, and the Score Summary.
 - `src/pages/judge/EvaluationPage.tsx` handles saving. Changes are queued with a debounce; saves run one at a time and retry automatically. Unsaved changes are flushed when the tab is hidden or the page is left. Submitting sends the complete on-screen state.
 - `src/pages/LeaderboardPage.tsx` shows DEMI and DECI tabs, the filters and publish controls. It refreshes on Realtime `results_signal` events and also polls every 30 seconds.
-- Admin pages cover the dashboard, teams (CRUD, import, assignment, bulk assign), judges (approval and roles), evaluations (per-judge view and reopen), read-only rubric management/preview, and the audit log.
+- Admin pages cover the dashboard, teams (CRUD, import, assignment, bulk assign), judges (approval and roles), evaluations (per-judge view and reopen), versioned rubric editing/preview/publishing, and the audit log.
 - Exports use ExcelJS, loaded only when needed. The workbook has five sheets: Official Leaderboard, All Teams Status, Judge Evaluations (with section subtotals), Criterion Scores, and Audit Log.
 - Browser storage is not used for any data. Supabase Auth keeps only its session token there.

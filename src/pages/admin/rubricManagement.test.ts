@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import rubrics from '../../../rubrics/rubrics.json';
+import { validateRubricDraft } from './RubricManagementPage';
 
 const appSource = readFileSync(new URL('../../App.tsx', import.meta.url), 'utf8');
 const layoutSource = readFileSync(new URL('../../components/Layout.tsx', import.meta.url), 'utf8');
@@ -30,5 +31,29 @@ describe('admin rubric management', () => {
     expect(previewSource).toContain('<RubricForm');
     expect(previewSource).toMatch(/\sreadOnly\s/);
     expect(previewSource).not.toMatch(/startEvaluation|saveEvaluation|submitEvaluation/);
+  });
+
+  it('validates weights, criteria, scoring descriptions and bonus changes before publishing', () => {
+    const source = rubrics.templates[0];
+    const payload = {
+      title: source.title, subtitle: source.subtitle,
+      scale_instruction: rubrics.scale_instruction, guidance: rubrics.guidance,
+      score_levels: rubrics.score_levels.map((x) => ({ ...x })),
+      sections: [...source.sections.map((s) => ({ title: s.title, weight: s.weight, is_bonus: false, criteria: s.criteria.map(([title, description]) => ({ title, description })) })),
+        { title: source.bonus.title, weight: source.bonus_max, is_bonus: true, criteria: source.bonus.criteria.map(([title, description]) => ({ title, description })) }],
+    };
+    expect(validateRubricDraft(payload)).toEqual([]);
+    const moved = payload.sections[0].criteria.pop()!;
+    payload.sections[0].weight -= 5;
+    payload.sections[1].criteria.push({ ...moved, title: 'Moved criterion' });
+    payload.sections[1].weight += 5;
+    const bonus = payload.sections[payload.sections.length - 1];
+    bonus.criteria.push({ title: 'New bonus requirement', description: 'Evidence required.' });
+    bonus.weight += 5;
+    payload.score_levels[2].label = 'Updated expectation';
+    expect(validateRubricDraft(payload)).toEqual([]);
+    payload.score_levels[2].description = '';
+    bonus.weight += 5;
+    expect(validateRubricDraft(payload).join(' ')).toMatch(/Scoring levels|not 20/);
   });
 });

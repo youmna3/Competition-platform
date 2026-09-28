@@ -30,7 +30,7 @@ export default function AdminEvaluationView() {
     try {
       const { evaluation: ev, scores: sc } = await fetchEvaluation(id);
       const [t, tpl, lv, profiles, au] = await Promise.all([
-        fetchTeam(ev.team_id), loadTemplate(ev.template_id), loadScoreLevels(), fetchProfiles(), fetchAudit({ evaluationId: id, limit: 500 }),
+        fetchTeam(ev.team_id), loadTemplate(ev.template_id), loadScoreLevels(ev.template_id), fetchProfiles(), fetchAudit({ evaluationId: id, limit: 500 }),
       ]);
       const s: ScoreMap = {};
       const n: Record<string, string> = {};
