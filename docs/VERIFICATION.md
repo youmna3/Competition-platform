@@ -56,4 +56,4 @@ Screenshots are in `docs/screenshots/`.
 
 - `tsc --noEmit` (strict): clean.
 - `vite build`: succeeds.
-- `vitest`: 24 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation, admin-route protection, and side-effect-free rubric preview).
+- `vitest`: 27 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation, missing/failed API response handling, successful rubric hydration, admin-route protection, and side-effect-free rubric preview).

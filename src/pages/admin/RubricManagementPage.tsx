@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Eye, History, Pencil, Plus, Save, Star, Trash2 } fr
 import { Link } from 'react-router-dom';
 import { countTemplateEvaluations, createRubricDraft, fetchRubricVersions, loadReference, loadScoreLevels, loadTemplate, publishRubric, saveRubricDraft, type Reference, type RubricDraftPayload } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
-import type { Competition, Organization, RubricSection, RubricTemplate, ScoreLevel } from '@/lib/types';
+import type { Competition, Organization, RubricSection, RubricTemplate, RubricVersionSummary, ScoreLevel } from '@/lib/types';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Spinner, Textarea, useToast } from '@/components/ui';
 
 interface CatalogEntry { competition: Competition; template: RubricTemplate }
@@ -12,12 +12,14 @@ interface CatalogEntry { competition: Competition; template: RubricTemplate }
 export default function RubricManagementPage() {
   const toast = useToast();
   const [reference, setReference] = useState<Reference | null>(null);
-  const [versions, setVersions] = useState<RubricTemplate[]>([]);
+  const [versions, setVersions] = useState<RubricVersionSummary[]>([]);
   const [entries, setEntries] = useState<CatalogEntry[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [organization, setOrganization] = useState<Organization>('DEMI');
   const [scale, setScale] = useState<ScoreLevel[]>([]);
   const [editing, setEditing] = useState<RubricTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<RubricTemplate | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [evaluationCount, setEvaluationCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -35,19 +37,28 @@ export default function RubricManagementPage() {
   }, [selectedId]);
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const selectedVersion = versions.find(x => x.id === selectedId) ?? entries.find(x => x.template.id === selectedId)?.template;
-  const family = selectedVersion?.family_id ?? selectedVersion?.id;
+  const selectedSummary = versions.find(x => x.id === selectedId);
+  const family = selectedSummary?.family_id ?? selectedTemplate?.family_id ?? selectedTemplate?.id;
   const selectedEntry = entries.find(x => (x.template.family_id ?? x.template.id) === family);
   const visibleEntries = entries.filter(x => x.competition.organization === organization);
   const familyVersions = versions.filter(x => (x.family_id ?? x.id) === family).sort((a,b)=>(b.version??1)-(a.version??1));
 
-  useEffect(() => { if (selectedVersion) void loadScoreLevels(selectedVersion.id).then(setScale).catch(e=>setError(errorMessage(e))); }, [selectedVersion?.id]);
+  useEffect(() => {
+    if (!selectedId) return;
+    let cancelled = false;
+    setDetailLoading(true); setError(null);
+    Promise.all([loadTemplate(selectedId), loadScoreLevels(selectedId)])
+      .then(([template, levels]) => { if (!cancelled) { setSelectedTemplate(template); setScale(levels); } })
+      .catch(e => { if (!cancelled) { setSelectedTemplate(null); setError(errorMessage(e)); } })
+      .finally(() => { if (!cancelled) setDetailLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedId]);
 
   const startEdit = async () => {
-    if (!selectedVersion) return; setBusy(true);
+    if (!selectedTemplate) return; setBusy(true);
     try {
-      const draftId = selectedVersion.lifecycle === 'draft' ? selectedVersion.id : await createRubricDraft(selectedVersion.id);
-      const protectedVersion = selectedVersion.lifecycle === 'draft' ? (selectedVersion.based_on_id ?? selectedVersion.id) : selectedVersion.id;
+      const draftId = selectedTemplate.lifecycle === 'draft' ? selectedTemplate.id : await createRubricDraft(selectedTemplate.id);
+      const protectedVersion = selectedTemplate.lifecycle === 'draft' ? (selectedTemplate.based_on_id ?? selectedTemplate.id) : selectedTemplate.id;
       const [draft, levels, count] = await Promise.all([loadTemplate(draftId), loadScoreLevels(draftId), countTemplateEvaluations(protectedVersion)]);
       setEvaluationCount(count); setScale(levels); setEditing(draft); setSelectedId(draftId); await load(draftId);
     } catch(e) { toast('error',errorMessage(e)); } finally { setBusy(false); }
@@ -55,10 +66,10 @@ export default function RubricManagementPage() {
   if (loading && !reference) return <Spinner label="Loading all rubric versions…"/>;
   if (error && !reference) return <Alert tone="error" title="Could not load rubrics">{error}</Alert>;
   return <div data-testid="rubric-management">
-    <PageHeader title="Rubric Management" subtitle="Create immutable drafts, validate and preview them, then publish without changing historical evaluations." actions={selectedVersion&&<div className="flex flex-wrap gap-2"><Link className="inline-flex h-10 items-center gap-2 rounded-full border border-brand-600 px-5 text-sm text-brand-700" to={`/admin/rubrics/${selectedVersion.id}/preview`}><Eye size={16}/>Preview</Link><Button onClick={startEdit} loading={busy}><Pencil size={16}/>{selectedVersion.lifecycle==='draft'?'Continue editing':'Edit as new version'}</Button></div>}/>
+    <PageHeader title="Rubric Management" subtitle="Create immutable drafts, validate and preview them, then publish without changing historical evaluations." actions={selectedTemplate&&<div className="flex flex-wrap gap-2"><Link className="inline-flex h-10 items-center gap-2 rounded-full border border-brand-600 px-5 text-sm text-brand-700" to={`/admin/rubrics/${selectedTemplate.id}/preview`}><Eye size={16}/>Preview</Link><Button onClick={startEdit} loading={busy}><Pencil size={16}/>{selectedTemplate.lifecycle==='draft'?'Continue editing':'Edit as new version'}</Button></div>}/>
     {error&&<Alert tone="error" className="mb-4">{error}</Alert>}
     <Card className="mb-6 p-4"><div className="flex gap-2">{(['DEMI','DECI'] as Organization[]).map(org=><button key={org} onClick={()=>{setOrganization(org);const e=entries.find(x=>x.competition.organization===org);if(e)setSelectedId(e.template.id)}} className={clsx('rounded-full px-5 py-2 text-sm font-semibold',organization===org?(org==='DEMI'?'bg-demi-500 text-white':'bg-deci-500 text-white'):'bg-slate-100 text-slate-600')}>{org}</button>)}</div><div className="mt-3 flex flex-wrap gap-2">{visibleEntries.map(e=><button key={e.competition.code} onClick={()=>setSelectedId(e.template.id)} className={clsx('rounded-full border px-4 py-2 text-sm',family===(e.template.family_id??e.template.id)?'border-brand-600 bg-brand-50 text-brand-800':'border-slate-200')}>{e.competition.label}</button>)}</div>{familyVersions.length>0&&<div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4"><History size={15}/><span className="text-xs font-semibold uppercase text-slate-500">History</span>{familyVersions.map(v=><button key={v.id} onClick={()=>setSelectedId(v.id)} className={clsx('rounded-full px-3 py-1 text-xs',selectedId===v.id?'bg-slate-800 text-white':'bg-slate-100')}>v{v.version??1} · {v.lifecycle??'published'}</button>)}</div>}</Card>
-    {editing&&editing.id===selectedId?<RubricEditor template={editing} scale={scale} evaluationCount={evaluationCount} onCancel={()=>setEditing(null)} onChanged={async id=>{setEditing(null);await load(id)}}/>:selectedVersion&&selectedEntry?<RubricDetails template={selectedVersion} competition={selectedEntry.competition} scale={scale}/>:<Card><EmptyState title="No rubric available">Apply pending Supabase migrations.</EmptyState></Card>}
+    {detailLoading ? <Spinner label="Loading complete rubric…"/> : editing&&editing.id===selectedId?<RubricEditor template={editing} scale={scale} evaluationCount={evaluationCount} onCancel={()=>setEditing(null)} onChanged={async id=>{setEditing(null);await load(id)}}/>:selectedTemplate&&selectedEntry?<RubricDetails template={selectedTemplate} competition={selectedEntry.competition} scale={scale}/>:<Card><EmptyState title="Rubric data unavailable">{error ? 'The database returned an error. Review the message above and verify the rubric-management migration.' : 'Select a rubric version.'}</EmptyState></Card>}
   </div>;
 }
 

@@ -87,6 +87,8 @@ export interface RubricTemplate {
   bonus: RubricSection | null;
 }
 
+export type RubricVersionSummary = Omit<RubricTemplate, 'sections' | 'bonus'>;
+
 export interface Team {
   id: string;
   team_code: string;

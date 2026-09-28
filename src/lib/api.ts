@@ -2,12 +2,30 @@ import { supabase } from './supabase';
 import type {
   AuditEntry, Competition, DashboardStats, Evaluation, EvaluationScore, Governorate, ImportResult, ImportRow,
   LeaderboardRow, Level, Profile, RubricCriterion, RubricSection, RubricTemplate, ScoreChange, ScoreLevel,
-  Team, TeamJudge, TeamResult,
+  Team, TeamJudge, TeamResult, RubricVersionSummary,
 } from './types';
 
-function unwrap<T>(res: { data: T | null; error: unknown }): T {
+export function unwrap<T>(res: { data: T | null; error: unknown }): T {
   if (res.error) throw res.error;
   return res.data as T;
+}
+
+export function requireArray<T>(value: T[] | null | undefined, label: string): T[] {
+  if (!Array.isArray(value)) throw new Error(`${label} response is missing or is not an array`);
+  return value;
+}
+
+export function hydrateRubricTemplate(
+  template: Omit<RubricTemplate, 'sections' | 'bonus'>,
+  sectionRows: Omit<RubricSection, 'criteria'>[] | null | undefined,
+  criterionRows: RubricCriterion[] | null | undefined,
+): RubricTemplate {
+  const criteria = requireArray(criterionRows, `Criteria for ${template.id}`);
+  const sections = requireArray(sectionRows, `Sections for ${template.id}`).map((section) => ({
+    ...section,
+    criteria: criteria.filter((criterion) => criterion.section_id === section.id).sort((a, b) => a.position - b.position),
+  }));
+  return { ...template, sections: sections.filter((section) => !section.is_bonus), bonus: sections.find((section) => section.is_bonus) ?? null };
 }
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
@@ -32,9 +50,9 @@ export function loadReference(force = false): Promise<Reference> {
         supabase.from('levels').select('*').order('sort_order'),
       ]);
       return {
-        governorates: unwrap(g) as Governorate[],
-        competitions: unwrap(c) as Competition[],
-        levels: unwrap(l) as Level[],
+        governorates: requireArray(unwrap(g) as Governorate[] | null, 'Governorates'),
+        competitions: requireArray(unwrap(c) as Competition[] | null, 'Competitions'),
+        levels: requireArray(unwrap(l) as Level[] | null, 'Levels'),
       };
     })().catch((e) => {
       referenceCache = null;
@@ -56,9 +74,11 @@ export function loadScoreLevels(templateId?: string): Promise<ScoreLevel[]> {
   if (!cached) {
     cached = (async () => {
       if (templateId) {
-        return unwrap(await supabase.from('rubric_score_levels').select('value,label,description').eq('template_id', templateId).order('value')) as ScoreLevel[];
+        const rows = requireArray(unwrap(await supabase.from('rubric_score_levels').select('value,label,description').eq('template_id', templateId).order('value')) as ScoreLevel[] | null, `Scoring levels for ${templateId}`);
+        if (rows.length !== 5) throw new Error(`Rubric ${templateId} has ${rows.length} scoring levels; expected 5`);
+        return rows;
       }
-      return unwrap(await supabase.from('score_levels').select('*').order('value')) as ScoreLevel[];
+      return requireArray(unwrap(await supabase.from('score_levels').select('*').order('value')) as ScoreLevel[] | null, 'Global scoring levels');
     })().catch((e) => { scaleCache.delete(key); throw e; });
     scaleCache.set(key, cached);
   }
@@ -75,16 +95,7 @@ export function loadTemplate(templateId: string): Promise<RubricTemplate> {
         supabase.from('rubric_criteria').select('*').eq('template_id', templateId).order('position'),
       ]);
       const tpl = unwrap(t) as Omit<RubricTemplate, 'sections' | 'bonus'>;
-      const criteria = unwrap(c) as RubricCriterion[];
-      const sections = (unwrap(s) as Omit<RubricSection, 'criteria'>[]).map((sec) => ({
-        ...sec,
-        criteria: criteria.filter((x) => x.section_id === sec.id).sort((a, b) => a.position - b.position),
-      }));
-      return {
-        ...tpl,
-        sections: sections.filter((x) => !x.is_bonus),
-        bonus: sections.find((x) => x.is_bonus) ?? null,
-      } as RubricTemplate;
+      return hydrateRubricTemplate(tpl, unwrap(s) as Omit<RubricSection, 'criteria'>[] | null, unwrap(c) as RubricCriterion[] | null);
     })();
     p.catch(() => templateCache.delete(templateId));
     templateCache.set(templateId, p);
@@ -92,8 +103,11 @@ export function loadTemplate(templateId: string): Promise<RubricTemplate> {
   return p;
 }
 
-export async function fetchRubricVersions(): Promise<RubricTemplate[]> {
-  return unwrap(await supabase.from('rubric_templates').select('*').order('family_id').order('version', { ascending: false })) as RubricTemplate[];
+export async function fetchRubricVersions(): Promise<RubricVersionSummary[]> {
+  return requireArray(
+    unwrap(await supabase.from('rubric_templates').select('*').order('family_id').order('version', { ascending: false })) as RubricVersionSummary[] | null,
+    'Rubric versions',
+  );
 }
 
 export async function createRubricDraft(sourceTemplateId: string): Promise<string> {

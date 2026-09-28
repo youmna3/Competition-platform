@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import rubrics from '../../../rubrics/rubrics.json';
 import { validateRubricDraft } from './RubricManagementPage';
+import { hydrateRubricTemplate, requireArray, unwrap } from '../../lib/api';
+import type { RubricCriterion, RubricSection, RubricTemplate } from '../../lib/types';
 
 const appSource = readFileSync(new URL('../../App.tsx', import.meta.url), 'utf8');
 const layoutSource = readFileSync(new URL('../../components/Layout.tsx', import.meta.url), 'utf8');
@@ -55,5 +57,28 @@ describe('admin rubric management', () => {
     payload.score_levels[2].description = '';
     bonus.weight += 5;
     expect(validateRubricDraft(payload).join(' ')).toMatch(/Scoring levels|not 20/);
+  });
+
+  it('reports missing rubric arrays instead of rendering a blank page', () => {
+    expect(() => requireArray(undefined, 'Rubric versions')).toThrow('Rubric versions response is missing');
+    expect(() => hydrateRubricTemplate({ id: 'X' } as Omit<RubricTemplate, 'sections' | 'bonus'>, undefined, [])).toThrow('Sections for X response is missing');
+  });
+
+  it('propagates failed Supabase queries', () => {
+    const failure = new Error('database unavailable');
+    expect(() => unwrap({ data: null, error: failure })).toThrow(failure);
+  });
+
+  it('hydrates successful version metadata with complete section and criterion arrays', () => {
+    const template = { id: 'X', title: 'X' } as Omit<RubricTemplate, 'sections' | 'bonus'>;
+    const sections = [
+      { id: 'X.S1', template_id: 'X', position: 1, title: 'Core', weight: 5, is_bonus: false },
+      { id: 'X.BONUS', template_id: 'X', position: 2, title: 'Bonus', weight: 5, is_bonus: true },
+    ] as Omit<RubricSection, 'criteria'>[];
+    const criteria = sections.map((section) => ({ id: `${section.id}.C1`, section_id: section.id, template_id: 'X', position: 1, title: 'Criterion', description: 'Description', max_points: 5, is_bonus: section.is_bonus })) as RubricCriterion[];
+    const result = hydrateRubricTemplate(template, sections, criteria);
+    expect(result.sections).toHaveLength(1);
+    expect(result.sections[0].criteria).toHaveLength(1);
+    expect(result.bonus?.criteria).toHaveLength(1);
   });
 });
