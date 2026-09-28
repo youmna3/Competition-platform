@@ -1,6 +1,6 @@
 # Verification report
 
-Every check below was run against this codebase. They cover the eight verification items in the brief.
+Every check below was run against this codebase except where the database-suite note explicitly identifies newly added assertions that still require a PostgreSQL/Supabase test environment.
 
 ## 1–2. Every digital rubric matches its PDF, including section maximums
 
@@ -15,9 +15,9 @@ Every check below was run against this codebase. They cover the eight verificati
 
 The verifier covers every Grade 6 title and description, all section weights, the 100-point core total, and the three-row 15-point bonus. The additive Grade 6 migration independently rejects an incorrect row count, section weight, or total, and `src/lib/scoring.test.ts` asserts the same structure.
 
-## 3–8. Database behaviour (`scripts/test_db.sh`, 136 assertions)
+## 3–8. Database behaviour (`scripts/test_db.sh`, 163 assertions defined)
 
-The suite runs all six migrations against PostgreSQL 16 with a Supabase auth stub. It then acts as the admin, three judges, a pending user and an anonymous visitor.
+The previously executed suite covered 136 assertions. It now defines 27 additional assertions for DEMI Grade 5, DEMI Grade 6 and DECI Level 1: clone a published rubric, modify a criterion, add a bonus criterion, save, read the changes back, publish, and compare historical evaluations and result rows before and after publication. Those new database assertions require a PostgreSQL/Supabase test environment and have not been executed on the current Windows machine, where PostgreSQL and Docker are unavailable.
 
 | Brief item | Evidence (assertions) |
 |---|---|

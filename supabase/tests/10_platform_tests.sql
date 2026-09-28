@@ -403,6 +403,61 @@ select tests.ok((select avg_core=89.5 from admin_team_results() where team_code=
 select tests.ok((select label from rubric_score_levels where template_id=(select v from rubric_ids where k='draft') and value=1)='Needs Work', 'versioned scoring configuration published');
 reset role;
 
+-- Exercise the same persisted clone/save/reload/publish path for the three
+-- representative families requested by the rubric-management regression.
+create function tests.exercise_rubric_version(p_source text, p_marker text) returns void language plpgsql as $$
+declare
+  v_draft text;
+  v_payload jsonb;
+  v_bonus_index int;
+  v_old_description text;
+  v_old_evaluations int;
+  v_old_results jsonb;
+  v_competition text;
+begin
+  select c.description into v_old_description
+    from rubric_criteria c join rubric_sections s on s.id=c.section_id
+   where c.template_id=p_source and not c.is_bonus
+   order by s.position,c.position limit 1;
+  select count(*) into v_old_evaluations from evaluations where template_id=p_source;
+  select c.code into v_competition from competitions c join rubric_templates t on t.family_id=c.rubric_family_id where t.id=p_source;
+  select coalesce(jsonb_agg(to_jsonb(r) order by r.team_id),'[]'::jsonb) into v_old_results
+    from admin_team_results() r where r.competition_code=v_competition;
+
+  v_draft := admin_create_rubric_draft(p_source);
+  perform tests.ok((select lifecycle='draft' and based_on_id=p_source from rubric_templates where id=v_draft), p_marker||' creates a separate draft');
+
+  v_payload := jsonb_set(tests.rubric_payload(v_draft),'{sections,0,criteria,0,description}',to_jsonb(p_marker||' revised description'));
+  select ordinality-1 into v_bonus_index
+    from jsonb_array_elements(v_payload->'sections') with ordinality x(section,ordinality)
+   where (section->>'is_bonus')::boolean;
+  v_payload := jsonb_set(v_payload,array['sections',v_bonus_index::text,'criteria'],
+    (v_payload #> array['sections',v_bonus_index::text,'criteria']) ||
+      jsonb_build_array(jsonb_build_object('title',p_marker||' added bonus criterion','description','Persisted bonus requirement')));
+  v_payload := jsonb_set(v_payload,array['sections',v_bonus_index::text,'weight'],
+    to_jsonb(((v_payload #>> array['sections',v_bonus_index::text,'weight'])::int)+5));
+
+  perform admin_save_rubric_draft(v_draft,v_payload);
+  -- Fresh SQL reads model a browser refresh and must recover both edits.
+  perform tests.ok((select c.description=p_marker||' revised description' from rubric_criteria c join rubric_sections s on s.id=c.section_id where c.template_id=v_draft and not c.is_bonus order by s.position,c.position limit 1), p_marker||' criterion edit survives reload');
+  perform tests.ok((select count(*)=1 from rubric_criteria where template_id=v_draft and title=p_marker||' added bonus criterion'), p_marker||' added criterion survives reload');
+
+  perform admin_publish_rubric(v_draft,'keep_existing');
+  perform tests.ok((select lifecycle='published' from rubric_templates where id=v_draft), p_marker||' draft publishes');
+  perform tests.ok((select template_id=v_draft from competitions where code=v_competition), p_marker||' published version becomes active');
+  perform tests.ok((select count(*)=1 from rubric_criteria where template_id=v_draft and title=p_marker||' added bonus criterion'), p_marker||' published version contains the addition');
+  perform tests.ok((select description=v_old_description from rubric_criteria c join rubric_sections s on s.id=c.section_id where c.template_id=p_source and not c.is_bonus order by s.position,c.position limit 1), p_marker||' historical rubric is unchanged');
+  perform tests.ok((select count(*) from evaluations where template_id=p_source)=v_old_evaluations, p_marker||' historical evaluations are unchanged');
+  perform tests.ok((select coalesce(jsonb_agg(to_jsonb(r) order by r.team_id),'[]'::jsonb) from admin_team_results() r where r.competition_code=v_competition)=v_old_results, p_marker||' team results are unchanged');
+end $$;
+grant execute on function tests.exercise_rubric_version(text,text) to authenticated;
+
+select tests.login('admin'); set role authenticated;
+select tests.exercise_rubric_version('DEMI_G5','DEMI Grade 5');
+select tests.exercise_rubric_version('DEMI_G6','DEMI Grade 6');
+select tests.exercise_rubric_version('DECI_L1','DECI Level 1');
+reset role;
+
 -- -----------------------------------------------------------------------------
 -- 11. Disabled judges lose access immediately
 -- -----------------------------------------------------------------------------
