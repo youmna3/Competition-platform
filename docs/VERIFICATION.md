@@ -21,6 +21,8 @@ The previously executed suite covered 136 assertions. It now defines 27 addition
 
 Administrator-controlled user-management assertions additionally cover database rejection of public signup, pending invitation records, pre-assignment without access, mandatory password creation, invitation acceptance, temporary-password access blocking, service-only completion of the mandatory password change, assigned-team-only access, and rejection of judge assignment-management calls. These new database assertions have not been executed on the current machine for the same environment limitation.
 
+The secure account-provisioning correction was also verified against the production Supabase project on 2026-09-28. A real Auth Admin `createUser` call created an approved profile with `password_change_required=true`; a real `inviteUserByEmail` call created a pending profile and dispatched the invite; an anonymous signup returned `422 signup_disabled`; a judge-context call to the provisioning RPC returned PostgreSQL `42501`. Disposable test users and provisioning rows were deleted after the checks, while the original three profiles and three evaluations remained unchanged.
+
 | Brief item | Evidence (assertions) |
 |---|---|
 | **3. Independent judges** | Judge 2 sees 0 of judge 1's evaluations or scores. Judge 2's attempts to save or submit judge 1's evaluation are rejected. Each judge gets a separate evaluation row. |
@@ -58,6 +60,6 @@ Screenshots are in `docs/screenshots/`.
 
 - `tsc --noEmit` (strict): clean.
 - `vite build`: succeeds.
-- `vitest`: 36 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation and publishing controls, administrator-only invitations, temporary-password account creation controls, CORS preflight ordering, mandatory-password routing/database gates, removal of public signup, invitation status handling, service-role isolation, missing/failed API response handling, successful rubric hydration, admin-route protection, side-effect-free rubric preview, responsive navigation controls, and shrink-safe rubric editor layouts).
+- `vitest`: 37 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation and publishing controls, administrator-only invitations, one-use provisioning authorization, temporary-password account creation controls, CORS preflight ordering, mandatory-password routing/database gates, removal of public signup, invitation status handling, service-role isolation, missing/failed API response handling, successful rubric hydration, admin-route protection, side-effect-free rubric preview, responsive navigation controls, and shrink-safe rubric editor layouts).
 
 The full-stack browser harness now also contains an administrator Grade 5 clone/edit/add/save/reload/preview/publish regression and width checks at 375, 768, 1024, 1280 and 1920 pixels. These new browser checks have not been executed on the current Windows machine because its local PostgreSQL/Supabase test stack is unavailable.

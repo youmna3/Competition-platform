@@ -146,8 +146,13 @@ select admin_set_team_judges((select id from teams where team_code='T6'), array[
 select tests.ok((select count(*) from team_judges) = 8, 'assignments created (multiple judges per team)');
 reset role;
 
--- Administrator invitation: preassigned teams stay hidden until acceptance.
-insert into auth.users(id,email,raw_user_meta_data,invited_at) values(tests.uid('ji'),'invited@example.com','{"full_name":"Invited Judge"}',now());
+-- Administrator invitation: a one-use server authorization is required at the
+-- INSERT trigger, then preassigned teams stay hidden until acceptance.
+select tests.login('admin'); set role authenticated;
+select admin_begin_account_provisioning('invited@example.com','invitation')::text as invitation_provisioning_token \gset
+reset role;
+insert into auth.users(id,email,raw_user_meta_data)
+values(tests.uid('ji'),'invited@example.com',jsonb_build_object('full_name','Invited Judge','provisioning_token',:'invitation_provisioning_token'));
 select tests.login('admin'); set role authenticated;
 select admin_record_invitation(null,tests.uid('ji'),'invited@example.com','Invited Judge',now()+interval '1 hour',array[(select id from teams where team_code='T6')]);
 select tests.ok((select status='pending' from user_invitations where auth_user_id=tests.uid('ji')), 'administrator records pending invitation');
@@ -169,10 +174,13 @@ select admin_set_judge_teams(tests.uid('ji'),'{}'::uuid[]);
 reset role;
 delete from auth.users where id=tests.uid('ji');
 
--- Temporary-password account: Auth Admin metadata is accepted, but all judge
+-- Temporary-password account: server provisioning is accepted, but all judge
 -- data remains blocked until the service-only completion RPC clears the gate.
-insert into auth.users(id,email,raw_user_meta_data,raw_app_meta_data,encrypted_password)
-values(tests.uid('jt'),'temporary@example.com','{"full_name":"Temporary Judge"}','{"account_creation":"temporary_password"}','temporary-hash');
+select tests.login('admin'); set role authenticated;
+select admin_begin_account_provisioning('temporary@example.com','temporary_password')::text as temporary_provisioning_token \gset
+reset role;
+insert into auth.users(id,email,raw_user_meta_data,encrypted_password)
+values(tests.uid('jt'),'temporary@example.com',jsonb_build_object('full_name','Temporary Judge','provisioning_token',:'temporary_provisioning_token'),'temporary-hash');
 select tests.login('admin'); set role authenticated;
 select admin_record_temporary_user(tests.uid('jt'),'temporary@example.com','Temporary Judge',array[(select id from teams where team_code='T6')]);
 select tests.ok((select password_change_required from profiles where id=tests.uid('jt')), 'temporary account requires password change');

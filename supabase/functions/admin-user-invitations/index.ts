@@ -100,8 +100,12 @@ Deno.serve(async (request) => {
       const email = body.email?.trim().toLowerCase() ?? '';
       const teamIds = Array.isArray(body.teamIds) ? body.teamIds : [];
       if (!fullName || !/^\S+@\S+\.\S+$/.test(email)) return json({ error: 'A valid name and e-mail are required' }, 400, origin);
+      const provisioned = await caller.rpc('admin_begin_account_provisioning', { p_email: email, p_method: 'invitation' });
+      if (provisioned.error || !provisioned.data) return json({ error: provisioned.error?.message ?? 'Invitation was not authorized' }, 400, origin);
       const redirectTo = `${appUrls[0]}/reset-password?invitation=1`;
-      const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { data: { full_name: fullName }, redirectTo });
+      const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+        data: { full_name: fullName, provisioning_token: provisioned.data }, redirectTo,
+      });
       if (error || !data.user) return json({ error: error?.message ?? 'Invitation could not be created' }, error?.status ?? 400, origin);
       const expiresAt = new Date(Date.now() + expirySeconds * 1000).toISOString();
       const recorded = await caller.rpc('admin_record_invitation', {
@@ -120,11 +124,12 @@ Deno.serve(async (request) => {
       const email = body.email?.trim().toLowerCase() ?? '';
       const teamIds = Array.isArray(body.teamIds) ? body.teamIds : [];
       if (!fullName || !/^\S+@\S+\.\S+$/.test(email)) return json({ error: 'A valid name and e-mail are required' }, 400, origin);
+      const provisioned = await caller.rpc('admin_begin_account_provisioning', { p_email: email, p_method: 'temporary_password' });
+      if (provisioned.error || !provisioned.data) return json({ error: provisioned.error?.message ?? 'Account creation was not authorized' }, 400, origin);
       const password = temporaryPassword();
       const created = await admin.auth.admin.createUser({
         email, password, email_confirm: true,
-        user_metadata: { full_name: fullName },
-        app_metadata: { account_creation: 'temporary_password' },
+        user_metadata: { full_name: fullName, provisioning_token: provisioned.data },
       });
       if (created.error || !created.data.user) {
         const duplicate = /already|registered|exists/i.test(created.error?.message ?? '');
@@ -148,8 +153,12 @@ Deno.serve(async (request) => {
       const { data: assignments } = await admin.from('team_judges').select('team_id').eq('judge_id', invitation.auth_user_id);
       const removed = await admin.auth.admin.deleteUser(invitation.auth_user_id);
       if (removed.error) return json({ error: removed.error.message }, 400, origin);
+      const provisioned = await caller.rpc('admin_begin_account_provisioning', { p_email: invitation.email, p_method: 'invitation' });
+      if (provisioned.error || !provisioned.data) return json({ error: provisioned.error?.message ?? 'Invitation resend was not authorized' }, 400, origin);
       const redirectTo = `${appUrls[0]}/reset-password?invitation=1`;
-      const invited = await admin.auth.admin.inviteUserByEmail(invitation.email, { data: { full_name: invitation.full_name }, redirectTo });
+      const invited = await admin.auth.admin.inviteUserByEmail(invitation.email, {
+        data: { full_name: invitation.full_name, provisioning_token: provisioned.data }, redirectTo,
+      });
       if (invited.error || !invited.data.user) return json({ error: invited.error?.message ?? 'Invitation could not be resent' }, 400, origin);
       const expiresAt = new Date(Date.now() + expirySeconds * 1000).toISOString();
       const recorded = await caller.rpc('admin_record_invitation', {

@@ -8,6 +8,7 @@ const authPages = readFileSync(new URL('../auth/AuthPages.tsx', import.meta.url)
 const edgeFunction = readFileSync(new URL('../../../supabase/functions/admin-user-invitations/index.ts', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../../../supabase/migrations/20260928000008_admin_user_invitations.sql', import.meta.url), 'utf8');
 const temporaryMigration = readFileSync(new URL('../../../supabase/migrations/20260928000009_temporary_password_accounts.sql', import.meta.url), 'utf8');
+const provisioningMigration = readFileSync(new URL('../../../supabase/migrations/20260928000010_secure_auth_provisioning.sql', import.meta.url), 'utf8');
 
 const invitation = (overrides: Partial<UserInvitation> = {}): UserInvitation => ({
   id: '1', auth_user_id: '2', email: 'judge@example.com', full_name: 'Judge', status: 'pending', invited_by: '3',
@@ -59,5 +60,17 @@ describe('administrator-controlled user management', () => {
     expect(migration).toContain('Public registration is disabled');
     expect(migration).toContain('Cannot remove or disable the last active administrator');
     expect(migration).toContain("if not public.is_admin()");
+  });
+
+  it('authorizes Auth Admin inserts with one-use server-issued provisioning tokens', () => {
+    expect(edgeFunction).toContain("admin_begin_account_provisioning");
+    expect(edgeFunction).toContain("p_method: 'invitation'");
+    expect(edgeFunction).toContain("p_method: 'temporary_password'");
+    expect(edgeFunction).toContain('provisioning_token: provisioned.data');
+    expect(provisioningMigration).toContain("if not public.is_admin()");
+    expect(provisioningMigration).toContain("digest(v_token::text,'sha256')");
+    expect(provisioningMigration).toContain('and consumed_at is null');
+    expect(provisioningMigration).toContain("raise exception 'Public registration is disabled; administrator provisioning is required'");
+    expect(provisioningMigration).toContain('revoke all on public.account_provisioning_requests from public, anon, authenticated');
   });
 });

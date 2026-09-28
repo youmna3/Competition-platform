@@ -28,6 +28,7 @@ supabase/migrations/          SQL migrations — run in filename order
   ..0007_fix_rubric_immutability_trigger.sql safe draft/publish trigger compatibility
   ..0008_admin_user_invitations.sql admin invitations, acceptance and judge-centric assignments
   ..0009_temporary_password_accounts.sql mandatory password-change gate for admin-created accounts
+  ..0010_secure_auth_provisioning.sql one-use authorization for Auth Admin user creation
 supabase/functions/           secure server-side administrator account endpoint
 supabase/tests/               SQL test-suite + a tiny Supabase stub for plain Postgres
 scripts/verify_rubrics.py     Checks rubrics.json against the PDF text (every word, weight, maximum)
