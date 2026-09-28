@@ -1,0 +1,296 @@
+{
+  "scale_instruction": "Enter ONE number from 1 to 5. Every row is worth 5 points; harder sections have more rows and therefore more weight.",
+  "guidance": "Judge the final Stage 3 work, using the previous-phase requirements as the baseline. Reward evidence, correct integration, and purposeful design - not complexity for its own sake. Testing: look for real trials/results, not only claims. Hardware: reward the best-fit use of components and reliable integration. Teamwork & presentation: look for shared ownership, clear communication, and the ability of multiple members to answer questions.",
+  "score_levels": [
+    { "value": 1, "label": "Weak", "description": "Missing, incorrect, non-functional, or little/no meaningful evidence." },
+    { "value": 2, "label": "Developing", "description": "Partially demonstrated; important gaps remain or substantial support is needed." },
+    { "value": 3, "label": "Meets Expectations", "description": "Core requirement is present, understandable, and works at an acceptable/basic level." },
+    { "value": 4, "label": "Strong", "description": "Complete, accurate, well integrated, and supported by good evidence; only minor issues." },
+    { "value": 5, "label": "Excellent", "description": "Highly effective, reliable, purposeful, well-tested/polished, and clearly justified by the team." }
+  ],
+  "templates": [
+    {
+      "id": "DEMI_G4",
+      "title": "Stage 3 Judges' Rubric - DEMI Grade 4",
+      "subtitle": "App Lab Project - Stage 3 Judge Evaluation",
+      "source_pdf": "DEMI_Grade_4_Judges_Rubric_Revised.pdf",
+      "core_max": 100,
+      "bonus_max": 10,
+      "sections": [
+        { "title": "Problem, Research & Solution", "weight": 20, "criteria": [
+          ["Problem & target user", "The team clearly defines the real-world problem, who is affected, and why it matters."],
+          ["Research on similar solutions", "Shows credible examples/screenshots of 1-2 similar apps or solutions and explains what was learned."],
+          ["Research insight / gap", "Explains what is missing or could be improved in existing solutions and connects that insight to the project."],
+          ["App solution & main features", "The app purpose and 2-3 main features directly address the identified problem and user needs."]
+        ]},
+        { "title": "UX & Prototype Design", "weight": 15, "criteria": [
+          ["User flow", "Screen-to-screen journey is logical, complete, and easy to follow."],
+          ["Wireframes / screen design", "Screens or mockups match the planned features and show a clear interface structure."],
+          ["Usability & design consistency", "Buttons, labels, navigation, layout, and visual choices are understandable and consistent for the target user."]
+        ]},
+        { "title": "Programming & Functionality", "weight": 25, "criteria": [
+          ["Working prototype", "Core app screens and planned features function during the demonstration."],
+          ["Events & user input", "Events such as button clicks trigger the correct actions and user inputs are handled properly."],
+          ["Variables & conditions", "Variables and conditional logic are used correctly to control app behavior."],
+          ["Loops / functions / data logic", "Uses suitable loops, functions, lists, or reusable logic where needed; logic is organized rather than repeated unnecessarily."],
+          ["Reliability & correctness", "App produces correct results, handles common mistakes reasonably, and does not break during normal use."]
+        ]},
+        { "title": "Testing & Improvement", "weight": 15, "criteria": [
+          ["Testing coverage", "Team tests important screens, buttons, inputs, and user journeys instead of only one happy path."],
+          ["Evidence of testing", "Shows concrete evidence such as test notes, screenshots, user feedback, before/after examples, or repeated trials."],
+          ["Improvement from findings", "Team identifies issues found during testing and explains or demonstrates meaningful improvements."]
+        ]},
+        { "title": "Business & Value", "weight": 10, "criteria": [
+          ["User value & delivery idea", "Explains who benefits, what value the app provides, and a realistic way it could be offered or shared."],
+          ["Differentiation & feasibility", "Explains why the solution is useful compared with alternatives and keeps the idea realistic for the intended users."]
+        ]},
+        { "title": "Teamwork & Presentation", "weight": 15, "criteria": [
+          ["Shared teamwork & roles", "Participation is balanced; team members contribute and can explain their own role in the project."],
+          ["Clear communication & demo", "Presentation is organized, understandable, within time, and the demo supports the story of the project."],
+          ["Questions & project understanding", "Team members answer judge questions clearly and show shared understanding of the app, decisions, and testing."]
+        ]}
+      ],
+      "bonus": { "title": "Extra Requirements / Optional Bonus", "criteria": [
+        ["Advanced app feature - usefulness & depth", "Optional extra feature meaningfully strengthens the same app rather than adding an unrelated idea."],
+        ["Advanced app feature - working evidence", "Shows screenshots/code or a working demonstration proving the advanced feature is implemented or credibly prototyped."]
+      ]}
+    },
+    {
+      "id": "DEMI_G5",
+      "title": "Stage 3 Judges' Rubric - DEMI Grade 5",
+      "subtitle": "Arduino + AI Project - Stage 3 Judge Evaluation",
+      "source_pdf": "DEMI_Grade_5_Judges_Rubric_Revised.pdf",
+      "core_max": 100,
+      "bonus_max": 10,
+      "sections": [
+        { "title": "Problem, Research & Solution", "weight": 15, "criteria": [
+          ["Problem, target user & research", "Clearly explains the problem, user, importance, and supporting research about similar ideas or needs."],
+          ["Solution alignment", "The proposed solution and its functions directly address the researched problem."],
+          ["User value", "The team can explain how the final system helps the target user and why the solution is worthwhile."]
+        ]},
+        { "title": "Hardware & System Design", "weight": 25, "criteria": [
+          ["Purposeful kit/component choice", "Hardware is selected because it fits the solution; unnecessary components are avoided and each chosen part has a clear role."],
+          ["Input/output component use", "Sensors and outputs/actuators are used correctly and their roles match the Stage 2 hardware plan."],
+          ["Circuit correctness & safety", "Connections are technically appropriate, organized, and safe for the intended prototype."],
+          ["System integration", "Input -> Arduino/controller -> output behavior works as one coherent system and matches the block/circuit design."],
+          ["Best use of hardware & reliability", "Hardware capabilities are used effectively for the problem, and the physical setup performs consistently during repeated demonstrations."]
+        ]},
+        { "title": "Programming & AI Integration", "weight": 20, "criteria": [
+          ["Programming logic", "Events/inputs, variables, conditions, loops, and outputs work together correctly."],
+          ["Code organization", "Functions or reusable blocks are used appropriately; code is readable and avoids unnecessary repetition."],
+          ["AI/ML feature relevance", "AI feature supports the same problem and is more than a disconnected add-on."],
+          ["AI evidence & integration", "Team shows model/concept evidence and clearly explains how AI input/output connects to the overall solution."]
+        ]},
+        { "title": "Prototype, Testing & Improvement", "weight": 15, "criteria": [
+          ["Prototype completeness", "The physical/digital prototype demonstrates the main planned behavior end-to-end."],
+          ["Evidence of testing", "Shows repeated tests, observations, measurements, screenshots, logs, or other evidence rather than only stating that testing happened."],
+          ["Improvement & reliability", "Team uses test findings to improve timing, thresholds, interaction, accuracy, or reliability and can explain the change."]
+        ]},
+        { "title": "Business & Value", "weight": 10, "criteria": [
+          ["Customer & value proposition", "Target customer/user matches the original problem and the value is clear."],
+          ["Practical delivery / feasibility", "Explains a realistic way the solution could be offered, used, or adopted."]
+        ]},
+        { "title": "Teamwork & Presentation", "weight": 15, "criteria": [
+          ["Shared teamwork & contribution", "Roles are balanced and all members visibly contribute to building, testing, or explaining the project."],
+          ["Technical communication", "Team explains hardware, code, AI, and design decisions in language appropriate to judges."],
+          ["Presentation, demo & Q&A", "Presentation is clear and well paced; demo evidence is convincing; answers show shared understanding."]
+        ]}
+      ],
+      "bonus": { "title": "Extra Requirements / Optional Bonus", "criteria": [
+        ["Advanced programming feature", "Optional stronger programming feature (functions, lists, nested logic, etc.) is useful and supported by code/logic evidence."],
+        ["Advanced AI feature", "Optional AI feature goes beyond the basic AI requirement and is supported by a model, screenshot, result, or credible prototype evidence."]
+      ]}
+    },
+    {
+      "id": "DECI_L1",
+      "title": "Stage 3 Judges' Rubric - DECI Level 1",
+      "subtitle": "MIT App Inventor + Kit Project - Stage 3 Judge Evaluation",
+      "source_pdf": "DECI_Level_1_Judges_Rubric_Revised.pdf",
+      "core_max": 100,
+      "bonus_max": 10,
+      "sections": [
+        { "title": "Problem, Research & Solution", "weight": 15, "criteria": [
+          ["Problem, target users & research", "Clearly defines the problem, exact users, importance, and supporting research findings/sources."],
+          ["Solution & user interaction", "Solution directly addresses the problem and explains how users will interact with it step by step."],
+          ["Main features & value", "3-4 main functions are purposeful and connected to the original user need."]
+        ]},
+        { "title": "System, Circuit & Kit Use", "weight": 20, "criteria": [
+          ["System structure", "Overall system/block flow is clear: trigger/input -> controller/processing -> output/action."],
+          ["Purposeful kit & component choice", "Car/Robot Arm Kit and specific components are chosen because they fit the project, not simply because they are available."],
+          ["Circuit/component understanding", "Connections and component roles are technically reasonable and match the design."],
+          ["Best hardware use & integration", "Hardware capabilities are used effectively and, where implemented, behave reliably as part of the same solution."]
+        ]},
+        { "title": "Programming Logic", "weight": 20, "criteria": [
+          ["Events / inputs", "Program begins from clear user/system events or inputs and reacts correctly."],
+          ["Conditions & decisions", "Decision logic matches the intended behavior and important cases."],
+          ["Loops / timing / repeated behavior", "Repeated actions or waiting/timing logic are handled correctly where required."],
+          ["Outputs & logic consistency", "Program outputs match the flowchart/blocks and the described system behavior."]
+        ]},
+        { "title": "MIT App Inventor & User Experience", "weight": 15, "criteria": [
+          ["App role & user flow", "App clearly supports or controls the solution and users can navigate the intended flow."],
+          ["Screens / interface quality", "Screens are understandable, consistent, and appropriate for the target users."],
+          ["Blocks & working evidence", "Real blocks/screens or a working demo show that the planned app logic is implemented."]
+        ]},
+        { "title": "Testing & Integration", "weight": 10, "criteria": [
+          ["End-to-end testing evidence", "Team shows that the app and any hardware interaction were tested through realistic use cases, not only isolated parts."],
+          ["Reliability & improvement", "Team identifies failures/limitations and explains changes or next improvements based on testing."]
+        ]},
+        { "title": "Business & Value", "weight": 5, "criteria": [
+          ["Benefit & delivery model", "Explains who benefits, the value provided, and a realistic way the solution could reach users."]
+        ]},
+        { "title": "Teamwork & Presentation", "weight": 15, "criteria": [
+          ["Shared contribution", "All team members participate and can explain the part they contributed."],
+          ["Communication & demonstration", "Presentation is clear and the live/demo evidence supports the project story."],
+          ["Q&A & shared understanding", "Team answers questions accurately and shows shared understanding of app, hardware, logic, and user need."]
+        ]}
+      ],
+      "bonus": { "title": "Extra Requirements / Optional Bonus", "criteria": [
+        ["AI feature", "Optional AI/ML/computer vision/NLP feature strengthens the same solution and includes prototype/evidence."],
+        ["Advanced App Inventor feature", "Optional advanced app feature (e.g., multiple screens, data storage, enhanced interaction) is useful and supported by working evidence."]
+      ]}
+    },
+    {
+      "id": "DECI_L2",
+      "title": "Stage 3 Judges' Rubric - DECI Level 2",
+      "subtitle": "Arduino + Web Integration Project - Stage 3 Judge Evaluation",
+      "source_pdf": "DECI_Level_2_Judges_Rubric_Revised.pdf",
+      "core_max": 100,
+      "bonus_max": 10,
+      "sections": [
+        { "title": "Problem, Research & Solution", "weight": 15, "criteria": [
+          ["Problem, users & research", "Defines a real problem and target users with relevant research findings/references."],
+          ["Solution fit & user interaction", "Solution directly addresses the problem and clearly explains how users interact with it."],
+          ["Features & value", "Main functions are purposeful, coherent, and create a clear advantage or value for the user."]
+        ]},
+        { "title": "System, Circuit, Hardware & Kit", "weight": 25, "criteria": [
+          ["System data flow", "Full path from sensor/input -> Arduino processing -> communication/output -> web/software is clear and correct."],
+          ["Purposeful kit selection", "Car/Robot Arm Kit choice is justified by the components actually needed; unnecessary kit parts are not forced into the project."],
+          ["Component roles", "Arduino, sensors, actuators, communication modules, and other parts each have a clear and correct role."],
+          ["Circuit correctness", "Power, ground, signal, TX/RX, and other relevant connections are technically reasonable and match the prototype."],
+          ["Best hardware use & reliability", "Hardware is used effectively for the problem and performs consistently in repeated trials/demos."]
+        ]},
+        { "title": "Programming & Control Logic", "weight": 15, "criteria": [
+          ["Inputs, conditions & outputs", "Sensor/input readings drive correct decisions and outputs."],
+          ["Loops & functions", "Repeated behavior and reusable functions/blocks are used appropriately and clearly."],
+          ["Control reliability", "Program behavior is stable, understandable, and consistent with the flowchart/pseudocode."]
+        ]},
+        { "title": "Web Interface Integration", "weight": 15, "criteria": [
+          ["Web role & system connection", "Web interface displays/controls the exact information produced by the system and has a clear purpose."],
+          ["UI quality & usability", "Interface is readable, organized, and appropriate for the target users."],
+          ["Working integration evidence", "Screenshots/demo show that the web interface and hardware/data flow are credibly connected or implemented."]
+        ]},
+        { "title": "Testing & Hardware Evidence", "weight": 10, "criteria": [
+          ["Evidence of testing", "Shows repeated hardware/software tests, measurements, logs, screenshots, or scenario results."],
+          ["Improvement & robustness", "Team uses findings to improve thresholds, communication, UI, wiring, reliability, or error handling."]
+        ]},
+        { "title": "Business & Value", "weight": 5, "criteria": [
+          ["Customer, alternatives & value", "Identifies customer, existing alternatives/competitors, and explains practical value/differentiation."]
+        ]},
+        { "title": "Teamwork & Presentation", "weight": 15, "criteria": [
+          ["Shared contribution & roles", "Team members visibly contribute across hardware, code, web, testing, or documentation."],
+          ["Technical communication", "Explains system flow and design decisions clearly without relying on one member for all technical answers."],
+          ["Presentation, demo & Q&A", "Presentation is clear, well paced, evidence-based, and questions are answered confidently."]
+        ]}
+      ],
+      "bonus": { "title": "Extra Requirements / Optional Bonus", "criteria": [
+        ["AI / data feature", "Optional AI, ML, or data-analysis feature uses relevant project data and includes a useful result or visualization."],
+        ["Advanced system feature", "Optional cybersecurity, automation, IoT, or software enhancement strengthens the existing system and includes evidence."]
+      ]}
+    },
+    {
+      "id": "DECI_L3",
+      "title": "Stage 3 Judges' Rubric - DECI Level 3",
+      "subtitle": "ESP32 + Track Integration Project - Stage 3 Judge Evaluation",
+      "source_pdf": "DECI_Level_3_Judges_Rubric_Revised.pdf",
+      "core_max": 100,
+      "bonus_max": 10,
+      "sections": [
+        { "title": "Problem, Research & Solution", "weight": 15, "criteria": [
+          ["Problem, user & research", "Clearly defines the problem/user and supports it with relevant research findings and references."],
+          ["Solution & user interaction", "Solution directly addresses the problem and explains a complete user interaction."],
+          ["Features & value", "Main functions are coherent, useful, and consistent with the same target user."]
+        ]},
+        { "title": "System, Hardware, IoT & Circuit", "weight": 25, "criteria": [
+          ["ESP32 system architecture", "System clearly explains sensor/input -> ESP32 processing -> decision -> output/communication, including relevant ESP32 capabilities."],
+          ["Purposeful platform & component choice", "Kit/platform, ESP32/ESP32 Camera, sensors, and actuators are selected because they fit the project."],
+          ["IoT communication", "Wi-Fi/Bluetooth/data flow is technically sensible, including two-way communication where needed."],
+          ["Circuit correctness", "Circuit connections and selected GPIO/input types are reasonable and match the implemented plan."],
+          ["Best hardware use & reliability", "Hardware/ESP32 capabilities are used effectively and operate consistently under repeated demonstrations."]
+        ]},
+        { "title": "Programming & AI / Data", "weight": 20, "criteria": [
+          ["Programming/control logic", "Inputs, decisions, timing/loops, outputs, and communication are implemented logically and reliably."],
+          ["Data collection & decisions", "Collected sensor/image data is relevant and is used appropriately to drive decisions or actions."],
+          ["AI approach & relevance", "If AI/computer vision is used, classification/object detection or other approach fits the problem and data."],
+          ["Evidence of AI/data flow", "Shows model/data-flow/visual evidence and explains how results connect back to the system."]
+        ]},
+        { "title": "Digital Identity & Track Integration", "weight": 10, "criteria": [
+          ["Digital identity", "Project name, logo, palette, and visual style are consistent and fit the product/user."],
+          ["Applied track integration", "Relevant team track output (Web, UI/UX, Data Science, Cybersecurity) is clearly connected to the same ESP32 project and shows real evidence."]
+        ]},
+        { "title": "Testing & Validation", "weight": 10, "criteria": [
+          ["Testing evidence & success checks", "Shows repeated functional tests or data/communication tests with observable success criteria."],
+          ["Improvement & system reliability", "Team identifies weaknesses and improves hardware, logic, data, interface, or communication based on evidence."]
+        ]},
+        { "title": "Business & Value", "weight": 5, "criteria": [
+          ["Customer, value & pricing", "Target customer, value proposition, and basic pricing/delivery idea are clear and realistic."]
+        ]},
+        { "title": "Teamwork & Presentation", "weight": 15, "criteria": [
+          ["Cross-track teamwork", "Members integrate their track contributions into one solution instead of presenting disconnected pieces."],
+          ["Communication & technical ownership", "Different members can explain decisions and demonstrate understanding beyond only their own slide/part."],
+          ["Presentation, demo & Q&A", "Project story is clear and professional; evidence is well selected; team handles judge questions effectively."]
+        ]}
+      ],
+      "bonus": { "title": "Extra Requirements / Optional Bonus", "criteria": [
+        ["Advanced AI feature", "Optional advanced AI/ML feature goes beyond the core data plan and includes prototype/evidence."],
+        ["Advanced system feature", "Optional stronger IoT, cybersecurity, data processing, or digital experience feature improves the same system and includes evidence."]
+      ]}
+    },
+    {
+      "id": "DECI_L45",
+      "title": "Stage 3 Judges' Rubric - DECI Levels 4 & 5",
+      "subtitle": "Combined Advanced Project - Stage 3 Judge Evaluation",
+      "source_pdf": "DECI_Levels_4_5_Judges_Rubric_Revised.pdf",
+      "core_max": 100,
+      "bonus_max": 15,
+      "sections": [
+        { "title": "Problem Analysis & Complete Solution", "weight": 10, "criteria": [
+          ["Problem, research & opportunity", "Defines the real problem, target users, existing alternatives, supporting research, and the specific value/opportunity for the solution."],
+          ["Complete end-to-end solution", "User journey and system behavior form a complete flow from data capture/input through processing, user action, and feedback/logging where appropriate."]
+        ]},
+        { "title": "Architecture, Hardware & Embedded IoT", "weight": 25, "criteria": [
+          ["System architecture & data flow", "Hardware, ESP32/ESP32 Camera, communication, AI/software processing, and user interface are connected in a technically coherent architecture."],
+          ["Purposeful hardware selection", "Physical platform, sensors/actuators, ESP32, and ESP32 Camera roles are justified by the problem; components are not added without purpose."],
+          ["Circuit & embedded logic", "Circuit, input processing, states/events, actuator responses, and control logic are technically sound and match the implementation."],
+          ["IoT / communication integration", "Data transmission, cloud/local processing, and device-to-system communication are reliable and appropriate for the use case."],
+          ["Best hardware use, reliability & scalability", "Hardware capabilities are used efficiently; system performs consistently and design choices consider reliability and practical scaling."]
+        ]},
+        { "title": "AI, Data Processing & Data Science", "weight": 20, "criteria": [
+          ["Data pipeline", "Data collection, preparation, processing, and decision flow are clear and technically appropriate."],
+          ["AI/ML approach & performance evidence", "Chosen AI/ML method fits the task; team shows relevant outputs, confidence/accuracy evidence, or justified evaluation."],
+          ["Data science insight", "Collected project data is organized/visualized to produce a useful insight that supports a real user or business decision."],
+          ["Integration of AI/data into system behavior", "AI/data results trigger meaningful dashboard updates, alerts, predictions, recommendations, or other actions in the same solution."]
+        ]},
+        { "title": "Product, UX, Web & Cybersecurity", "weight": 15, "criteria": [
+          ["Product identity & professional visualization", "Brand/UI is consistent and polished; mixed Level 4-5 team includes strong product visuals/digital assets appropriate to Level 5 depth."],
+          ["Web application integration", "Web/app interface exposes the correct live/history/control information from the hardware/AI system and supports the intended user flow."],
+          ["Cybersecurity design", "Authentication/authorization, access control, communication/data protection, and relevant risks are addressed in a way that fits the architecture."]
+        ]},
+        { "title": "Business, Testing & Improvement", "weight": 15, "criteria": [
+          ["Business model & product planning", "Customer, value proposition, pricing, competitors/alternatives, and delivery approach are complete and realistic."],
+          ["Testing evidence & measurable success criteria", "Team tests under relevant conditions and shows evidence such as logs, accuracy results, repeated runs, failure cases, or comparison to ground truth."],
+          ["Iteration, reliability & improvement", "Test results lead to concrete improvements; team can explain limitations, reliability concerns, and next technical/product steps."]
+        ]},
+        { "title": "Teamwork & Presentation", "weight": 15, "criteria": [
+          ["Cross-discipline teamwork & ownership", "Hardware, software, AI/data, design, security, and business work are integrated; members have visible contributions and shared ownership."],
+          ["Technical communication & decision justification", "Team explains architecture and tradeoffs clearly and can justify why technologies/components were chosen."],
+          ["Presentation, live demo & Q&A", "Presentation is polished and concise, demo evidence is convincing, and multiple members answer judge questions confidently."]
+        ]}
+      ],
+      "bonus": { "title": "Extra Requirements / Optional Bonus", "criteria": [
+        ["Advanced AI/ML feature", "Optional advanced AI feature goes beyond the core AI/data pipeline and is supported by evidence or a credible prototype."],
+        ["Advanced IoT / security feature", "Optional advanced cloud, real-time communication, automation, monitoring, or security capability strengthens the same architecture."],
+        ["Level 5 advanced security / reliability", "Optional Level-5-depth feature such as stronger authentication, secure protocols, monitoring, risk management, or reliability safeguards is demonstrated with evidence."]
+      ]}
+    }
+  ]
+}

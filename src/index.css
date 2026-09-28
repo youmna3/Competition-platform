@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Somar Rounded — iSchool brand typeface (https://brand.ischooltech.com/typography).
+ * Place the licensed .ttf files from the brand "Download Fonts" package in /public/fonts.
+ * Until they are present the UI falls back to Nunito (a rounded Google font).
+ */
+@font-face { font-family: 'Somar Rounded'; src: url('/fonts/SomarRounded-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Somar Rounded'; src: url('/fonts/SomarRounded-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Somar Rounded'; src: url('/fonts/SomarRounded-SemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Somar Rounded'; src: url('/fonts/SomarRounded-Bold.ttf') format('truetype'); font-weight: 700 900; font-style: normal; font-display: swap; }
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-slate-50 font-sans text-slate-900 antialiased; }
+  h1, h2, h3 { letter-spacing: -0.01em; }
+}
+
+@layer components {
+  /* 60 / 30 / 10 brand colour stripe: blue · orange · yellow */
+  .brand-stripe { background: linear-gradient(90deg, #056FEC 0 60%, #FF7F1C 60% 90%, #FFD700 90% 100%); }
+}
