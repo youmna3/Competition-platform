@@ -14,6 +14,8 @@ import JudgesPage from './pages/admin/JudgesPage';
 import ResultsPage from './pages/admin/ResultsPage';
 import AdminEvaluationView from './pages/admin/AdminEvaluationView';
 import AuditPage from './pages/admin/AuditPage';
+import RubricManagementPage from './pages/admin/RubricManagementPage';
+import RubricPreviewPage from './pages/admin/RubricPreviewPage';
 
 function RequireAuth({ children, admin }: { children: ReactNode; admin?: boolean }) {
   const { session, profile, loading, isAdmin } = useAuth();
@@ -60,6 +62,8 @@ export default function App() {
         <Route path="/admin/teams" element={<RequireAuth admin><TeamsPage /></RequireAuth>} />
         <Route path="/admin/judges" element={<RequireAuth admin><JudgesPage /></RequireAuth>} />
         <Route path="/admin/results" element={<RequireAuth admin><ResultsPage /></RequireAuth>} />
+        <Route path="/admin/rubrics" element={<RequireAuth admin><RubricManagementPage /></RequireAuth>} />
+        <Route path="/admin/rubrics/:templateId/preview" element={<RequireAuth admin><RubricPreviewPage /></RequireAuth>} />
         <Route path="/admin/evaluations/:id" element={<RequireAuth admin><AdminEvaluationView /></RequireAuth>} />
         <Route path="/admin/audit" element={<RequireAuth admin><AuditPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />

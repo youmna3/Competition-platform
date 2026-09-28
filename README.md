@@ -90,6 +90,7 @@ To deploy from the CLI instead: `npm i -g vercel && vercel --prod`, after settin
 | Admin | **Teams** | Register teams (unique ID, name, project, organization, grade/level, governorate) or **Import CSV/Excel**. There is a template to download. Assign one or more judges per team, or bulk-add judges to selected teams. |
 | Judge | **My evaluations** | Choose **DEMI** or **DECI**, then the grade/level, then an assigned team. Score each row 1–5 and add notes. Drafts save automatically. Submit when every core row is scored. |
 | Admin | **Evaluations** | Per-team progress. Open any judge's submission read-only, see its change history, and **reopen** it with a reason. |
+| Admin | **Rubric Management** | Browse all DEMI/DECI rubrics and open the real evaluation form in a side-effect-free, read-only preview. |
 | Everyone | **Leaderboard** | DEMI and DECI tabs, grade/level and governorate filters, a trophy on the top team of each category, ties shown as `=1`. The public sees only boards an admin has **published**. |
 | Admin | **Dashboard** | Totals, pending work, results by category and governorate, top teams, **Export all results** (.xlsx). |
 

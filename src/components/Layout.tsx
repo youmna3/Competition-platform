@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { BarChart3, ClipboardCheck, History, LayoutDashboard, LogIn, LogOut, Menu, Trophy, Users, UsersRound, X } from 'lucide-react';
+import { BarChart3, BookOpen, ClipboardCheck, History, LayoutDashboard, LogIn, LogOut, Menu, Trophy, Users, UsersRound, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 interface NavItem { to: string; label: string; icon: ReactNode; end?: boolean }
@@ -38,6 +38,7 @@ export default function Layout() {
       { to: '/admin/teams', label: 'Teams', icon: <UsersRound size={16} /> },
       { to: '/admin/judges', label: 'Judges', icon: <Users size={16} /> },
       { to: '/admin/results', label: 'Evaluations', icon: <BarChart3 size={16} /> },
+      { to: '/admin/rubrics', label: 'Rubric Management', icon: <BookOpen size={16} /> },
       { to: '/admin/audit', label: 'Audit log', icon: <History size={16} /> },
     );
   }
