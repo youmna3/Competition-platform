@@ -25,7 +25,11 @@ supabase/migrations/          SQL migrations — run in filename order
   ..0004_seed_reference.sql   original governorates, competitions, levels and six rubrics
   ..0005_add_demi_grade_6.sql additive DEMI Grade 6 rubric and competition
   ..0006_rubric_version_management.sql immutable versions, drafts and publishing
-supabase/tests/               SQL test-suite (136 assertions) + a tiny Supabase stub for plain Postgres
+  ..0007_fix_rubric_immutability_trigger.sql safe draft/publish trigger compatibility
+  ..0008_admin_user_invitations.sql admin invitations, acceptance and judge-centric assignments
+  ..0009_temporary_password_accounts.sql mandatory password-change gate for admin-created accounts
+supabase/functions/           secure server-side administrator account endpoint
+supabase/tests/               SQL test-suite + a tiny Supabase stub for plain Postgres
 scripts/verify_rubrics.py     Checks rubrics.json against the PDF text (every word, weight, maximum)
 scripts/gen_seed.py           Regenerates migration 0004 from rubrics.json
 scripts/test_db.sh            Runs all migrations + SQL tests on a scratch Postgres
@@ -49,17 +53,23 @@ src/                          React application
      ```
 3. **Set up authentication** in *Authentication → Sign In / Providers*:
    - Enable the **Email** provider (email and password).
-   - Keep **Confirm email** turned on (recommended). New judges confirm their email, then wait for an administrator to approve them.
+   - Turn **Allow new users to sign up** off. Migration 0008 also rejects non-invited Auth identities at the database trigger as defense in depth.
    - Under *Authentication → URL Configuration*, set **Site URL** to your Vercel URL (e.g. `https://judging.example.com`). Add these **Redirect URLs**: `https://judging.example.com/**` and `http://localhost:5173/**`.
    - For production email, set up a custom SMTP sender under *Authentication → Emails → SMTP*. Supabase's built-in sender is heavily rate-limited.
 4. **Check that Realtime is on** for leaderboards: *Database → Publications → supabase_realtime* should include `results_signal`. Migration 0003 adds it automatically. If Realtime is ever off, the pages still refresh every 30 seconds.
-5. **Create the first administrator.** Sign up through the app (`/signup`), then run this once in the SQL Editor:
+5. **Create the first administrator.** In *Authentication → Users*, use **Send invitation**, accept it and set a password, then run this once in the SQL Editor:
    ```sql
    update public.profiles set role = 'admin', status = 'approved'
    where email = 'you@ischooltech.com';
    ```
-   From then on, administrators approve judges and promote other admins from **Judges & accounts**. The database will not let you disable or demote the last active admin.
+   From then on, administrators invite judges and may promote accepted judges from **Judges & accounts**. The database will not let you disable or demote the last active admin.
 6. Copy **Project URL** and the **anon public key** from *Project Settings → API*.
+7. Deploy the invitation function and configure its server-side redirect:
+   ```bash
+   supabase secrets set APP_URL=https://judging.example.com ALLOWED_ORIGINS=https://judging.example.com INVITE_EXPIRY_SECONDS=3600
+   supabase functions deploy admin-user-invitations --no-verify-jwt --use-api
+   ```
+   Supabase supplies the URL and API keys to its function runtime. Never add the service-role key to Vercel.
 
 > The anon key is safe to use in the browser. Every table is protected by RLS, and every write goes through validated database functions. **Never** put the `service_role` key in the frontend.
 
@@ -86,8 +96,9 @@ To deploy from the CLI instead: `npm i -g vercel && vercel --prod`, after settin
 
 | Who | Where | What |
 |---|---|---|
-| Judge | `/signup` → `/pending` | Register. Access starts once an admin approves. |
-| Admin | **Judges** | Approve or reject sign-ups, disable accounts, grant admin rights. |
+| Judge | Invitation e-mail | Open the expiring link, set a password, then access only assigned teams. |
+| Admin | **Judges** | Invite judges by e-mail or create an account with a one-time temporary password, assign teams, disable accounts and grant admin rights. |
+| Judge | Temporary password | Sign in once, then replace the temporary password before any protected team or evaluation data is accessible. |
 | Admin | **Teams** | Register teams (unique ID, name, project, organization, grade/level, governorate) or **Import CSV/Excel**. There is a template to download. Assign one or more judges per team, or bulk-add judges to selected teams. |
 | Judge | **My evaluations** | Choose **DEMI** or **DECI**, then the grade/level, then an assigned team. Score each row 1–5 and add notes. Drafts save automatically. Submit when every core row is scored. |
 | Admin | **Evaluations** | Per-team progress. Open any judge's submission read-only, see its change history, and **reopen** it with a reason. |

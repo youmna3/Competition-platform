@@ -76,8 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       loading,
-      isAdmin: profile?.role === 'admin' && profile.status === 'approved',
-      isApproved: profile?.status === 'approved',
+      isAdmin: profile?.role === 'admin' && profile.status === 'approved' && !profile.password_change_required,
+      isApproved: profile?.status === 'approved' && !profile.password_change_required,
       refreshProfile: () => loadProfile(session),
       signOut: async () => {
         await supabase.auth.signOut();

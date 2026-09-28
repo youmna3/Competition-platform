@@ -16,6 +16,8 @@ create function tests.uid(p text) returns uuid language sql immutable as $$
     when 'j2'    then '00000000-0000-0000-0000-000000000002'
     when 'j3'    then '00000000-0000-0000-0000-000000000003'
     when 'jp'    then '00000000-0000-0000-0000-00000000000f'
+    when 'ji'    then '00000000-0000-0000-0000-00000000000e'
+    when 'jt'    then '00000000-0000-0000-0000-00000000000d'
   end)::uuid $$;
 
 create function tests.login(p text) returns void language sql as $$
@@ -97,14 +99,15 @@ select tests.ok((select string_agg(template_id, ',' order by l.code) from levels
 -- -----------------------------------------------------------------------------
 -- 1. Sign-up creates pending judges; bootstrap admin
 -- -----------------------------------------------------------------------------
-insert into auth.users (id, email, raw_user_meta_data) values
-  (tests.uid('admin'), 'admin@example.com', '{"full_name":"Ada Admin"}'),
-  (tests.uid('j1'), 'judge1@example.com', '{"full_name":"Judge One"}'),
-  (tests.uid('j2'), 'judge2@example.com', '{"full_name":"Judge Two"}'),
-  (tests.uid('j3'), 'judge3@example.com', '{"full_name":"Judge Three"}'),
-  (tests.uid('jp'), 'pending@example.com', '{"full_name":"Pending Person"}');
+insert into auth.users (id, email, raw_user_meta_data, invited_at) values
+  (tests.uid('admin'), 'admin@example.com', '{"full_name":"Ada Admin"}', now()),
+  (tests.uid('j1'), 'judge1@example.com', '{"full_name":"Judge One"}', now()),
+  (tests.uid('j2'), 'judge2@example.com', '{"full_name":"Judge Two"}', now()),
+  (tests.uid('j3'), 'judge3@example.com', '{"full_name":"Judge Three"}', now()),
+  (tests.uid('jp'), 'pending@example.com', '{"full_name":"Pending Person"}', now());
 
-select tests.ok((select count(*) from profiles where role = 'judge' and status = 'pending') = 5, 'new sign-ups are pending judges');
+select tests.ok((select count(*) from profiles where role = 'judge' and status = 'pending') = 5, 'invited users start as pending judges');
+select tests.throws($$insert into auth.users(id,email) values(gen_random_uuid(),'public-signup@example.com')$$, 'Public registration is disabled', 'database trigger blocks public signup');
 update profiles set role = 'admin', status = 'approved' where email = 'admin@example.com'; -- SQL editor bootstrap
 
 -- pending user cannot self-approve or self-promote
@@ -142,6 +145,47 @@ select admin_set_team_judges((select id from teams where team_code='T5'), array[
 select admin_set_team_judges((select id from teams where team_code='T6'), array[tests.uid('j3')]);
 select tests.ok((select count(*) from team_judges) = 8, 'assignments created (multiple judges per team)');
 reset role;
+
+-- Administrator invitation: preassigned teams stay hidden until acceptance.
+insert into auth.users(id,email,raw_user_meta_data,invited_at) values(tests.uid('ji'),'invited@example.com','{"full_name":"Invited Judge"}',now());
+select tests.login('admin'); set role authenticated;
+select admin_record_invitation(null,tests.uid('ji'),'invited@example.com','Invited Judge',now()+interval '1 hour',array[(select id from teams where team_code='T6')]);
+select tests.ok((select status='pending' from user_invitations where auth_user_id=tests.uid('ji')), 'administrator records pending invitation');
+select tests.ok((select count(*)=1 from team_judges where judge_id=tests.uid('ji')), 'invited pending judge can be preassigned');
+reset role;
+select tests.login('ji'); set role authenticated;
+select tests.ok((select count(*) from teams)=0, 'invited judge sees no teams before acceptance');
+select tests.throws($$select accept_my_invitation()$$,'Set a password','invitation cannot activate before password is set');
+reset role;
+update auth.users set encrypted_password='test-hash' where id=tests.uid('ji');
+select tests.login('ji'); set role authenticated;
+select accept_my_invitation();
+select tests.ok((select status='approved' from profiles where id=tests.uid('ji')), 'accepting invitation activates judge');
+select tests.ok((select count(*) from teams)=1, 'accepted judge sees only assigned team');
+select tests.throws($$select admin_set_judge_teams(tests.uid('ji'),'{}'::uuid[])$$,'Administrator access required','judge cannot manage assignments');
+reset role;
+select tests.login('admin'); set role authenticated;
+select admin_set_judge_teams(tests.uid('ji'),'{}'::uuid[]);
+reset role;
+delete from auth.users where id=tests.uid('ji');
+
+-- Temporary-password account: Auth Admin metadata is accepted, but all judge
+-- data remains blocked until the service-only completion RPC clears the gate.
+insert into auth.users(id,email,raw_user_meta_data,raw_app_meta_data,encrypted_password)
+values(tests.uid('jt'),'temporary@example.com','{"full_name":"Temporary Judge"}','{"account_creation":"temporary_password"}','temporary-hash');
+select tests.login('admin'); set role authenticated;
+select admin_record_temporary_user(tests.uid('jt'),'temporary@example.com','Temporary Judge',array[(select id from teams where team_code='T6')]);
+select tests.ok((select password_change_required from profiles where id=tests.uid('jt')), 'temporary account requires password change');
+reset role;
+select tests.login('jt'); set role authenticated;
+select tests.ok((select count(*) from teams)=0, 'temporary-password judge cannot read assigned teams before changing password');
+select tests.throws($$select service_complete_password_change(auth.uid())$$,'permission denied','judge cannot bypass password change gate through RPC');
+reset role;
+select service_complete_password_change(tests.uid('jt'));
+select tests.login('jt'); set role authenticated;
+select tests.ok((select count(*) from teams)=1, 'judge sees assigned team after mandatory password change completion');
+reset role;
+delete from auth.users where id=tests.uid('jt');
 
 -- -----------------------------------------------------------------------------
 -- 2. Judges see only assigned teams; pending users see nothing

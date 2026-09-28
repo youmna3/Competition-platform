@@ -15,9 +15,11 @@ Every check below was run against this codebase except where the database-suite 
 
 The verifier covers every Grade 6 title and description, all section weights, the 100-point core total, and the three-row 15-point bonus. The additive Grade 6 migration independently rejects an incorrect row count, section weight, or total, and `src/lib/scoring.test.ts` asserts the same structure.
 
-## 3–8. Database behaviour (`scripts/test_db.sh`, 163 assertions defined)
+## 3–8. Database behaviour (`scripts/test_db.sh`)
 
 The previously executed suite covered 136 assertions. It now defines 27 additional assertions for DEMI Grade 5, DEMI Grade 6 and DECI Level 1: clone a published rubric, modify a criterion, add a bonus criterion, save, read the changes back, publish, and compare historical evaluations and result rows before and after publication. Those new database assertions require a PostgreSQL/Supabase test environment and have not been executed on the current Windows machine, where PostgreSQL and Docker are unavailable.
+
+Administrator-controlled user-management assertions additionally cover database rejection of public signup, pending invitation records, pre-assignment without access, mandatory password creation, invitation acceptance, temporary-password access blocking, service-only completion of the mandatory password change, assigned-team-only access, and rejection of judge assignment-management calls. These new database assertions have not been executed on the current machine for the same environment limitation.
 
 | Brief item | Evidence (assertions) |
 |---|---|
@@ -32,9 +34,9 @@ The previously executed suite covered 136 assertions. It now defines 27 addition
 | Import | An invalid file writes nothing (atomic) and reports row errors, including duplicate IDs within the file. A valid file inserts or updates by Team ID and assigns judges by email. |
 | Audit | Score changes are logged with old and new values. Submissions and reopens are logged with the reason. |
 
-## End-to-end browser test (`scripts/e2e/e2e.mjs`), passing
+## Historical end-to-end browser test (`scripts/e2e/e2e.mjs`)
 
-This run used a real **Supabase Auth (GoTrue v2.177) + PostgREST v12 + Postgres 16** stack with the project migrations applied, and the Vite app driven by Playwright/Chromium. It covered:
+An earlier run used a real **Supabase Auth (GoTrue v2.177) + PostgREST v12 + Postgres 16** stack with the project migrations applied, and the Vite app driven by Playwright/Chromium. Its public-signup bootstrap is no longer compatible with the invitation-only authentication model, so it is historical evidence rather than a current passing result. It covered:
 
 - sign-up through the UI, which lands on the pending page;
 - admin approval through the UI;
@@ -56,6 +58,6 @@ Screenshots are in `docs/screenshots/`.
 
 - `tsc --noEmit` (strict): clean.
 - `vite build`: succeeds.
-- `vitest`: 30 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation and publishing controls, missing/failed API response handling, successful rubric hydration, admin-route protection, side-effect-free rubric preview, responsive navigation controls, and shrink-safe rubric editor layouts).
+- `vitest`: 36 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation and publishing controls, administrator-only invitations, temporary-password account creation controls, CORS preflight ordering, mandatory-password routing/database gates, removal of public signup, invitation status handling, service-role isolation, missing/failed API response handling, successful rubric hydration, admin-route protection, side-effect-free rubric preview, responsive navigation controls, and shrink-safe rubric editor layouts).
 
 The full-stack browser harness now also contains an administrator Grade 5 clone/edit/add/save/reload/preview/publish regression and width checks at 375, 768, 1024, 1280 and 1920 pixels. These new browser checks have not been executed on the current Windows machine because its local PostgreSQL/Supabase test stack is unavailable.

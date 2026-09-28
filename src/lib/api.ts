@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import type {
   AuditEntry, Competition, DashboardStats, Evaluation, EvaluationScore, Governorate, ImportResult, ImportRow,
   LeaderboardRow, Level, Profile, RubricCriterion, RubricSection, RubricTemplate, ScoreChange, ScoreLevel,
-  Team, TeamJudge, TeamResult, RubricVersionSummary,
+  Team, TeamJudge, TeamResult, RubricVersionSummary, UserInvitation,
 } from './types';
 
 export function unwrap<T>(res: { data: T | null; error: unknown }): T {
@@ -155,6 +155,46 @@ export async function updateProfileAccess(id: string, patch: Partial<Pick<Profil
   unwrap(await supabase.from('profiles').update(patch).eq('id', id).select().single());
 }
 
+export async function fetchInvitations(): Promise<UserInvitation[]> {
+  return requireArray(unwrap(await supabase.from('user_invitations').select('*').order('invited_at', { ascending: false })) as UserInvitation[] | null, 'Invitations');
+}
+
+export type AccountManagementRequest =
+  | { action: 'invite' | 'create-temporary'; fullName: string; email: string; teamIds: string[] }
+  | { action: 'resend' | 'revoke'; invitationId: string }
+  | { action: 'complete-password-change'; password: string };
+
+export async function manageInvitation(body: AccountManagementRequest) {
+  const { data, error } = await supabase.functions.invoke('admin-user-invitations', { body });
+  if (error) {
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      let message: string | undefined;
+      try {
+        const payload = await context.clone().json() as { error?: string; message?: string; msg?: string; code?: string };
+        message = payload.error || payload.message || payload.msg;
+        if (message && payload.code) message = `${message} (${payload.code})`;
+      } catch { /* use the original Functions error */ }
+      if (message) throw new Error(message);
+    }
+    const message = error instanceof Error ? error.message : '';
+    if (/failed to send|fetch failed|network/i.test(message)) {
+      throw new Error('The account service could not be reached. Verify that the admin-user-invitations Edge Function is deployed to this Supabase project and that this site origin is listed in ALLOWED_ORIGINS.');
+    }
+    throw error;
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function completeRequiredPasswordChange(password: string): Promise<void> {
+  await manageInvitation({ action: 'complete-password-change', password });
+}
+
+export async function acceptMyInvitation() {
+  unwrap(await supabase.rpc('accept_my_invitation'));
+}
+
 // ---------------------------------------------------------------------------
 // Teams & assignments
 // ---------------------------------------------------------------------------
@@ -194,6 +234,10 @@ export async function deleteTeam(id: string) {
 
 export async function setTeamJudges(teamId: string, judgeIds: string[]) {
   unwrap(await supabase.rpc('admin_set_team_judges', { p_team_id: teamId, p_judge_ids: judgeIds }));
+}
+
+export async function setJudgeTeams(judgeId: string, teamIds: string[]) {
+  unwrap(await supabase.rpc('admin_set_judge_teams', { p_judge_id: judgeId, p_team_ids: teamIds }));
 }
 
 export async function importTeams(rows: ImportRow[], replaceAssignments: boolean): Promise<ImportResult> {

@@ -8,7 +8,7 @@ import { Alert, Badge, Button, Card, EmptyState, PageHeader, Select, Spinner, fo
 
 const ACTIONS: [string, string][] = [
   ['', 'All activity'], ['score', 'Score changes'], ['evaluation', 'Submissions & reopens'], ['assignment', 'Assignments'],
-  ['team', 'Teams'], ['profile', 'Account access'], ['leaderboard', 'Publication'],
+  ['team', 'Teams'], ['profile', 'Account access'], ['invitation', 'Invitations'], ['account', 'Account creation'], ['leaderboard', 'Publication'],
 ];
 
 export function describe(a: AuditEntry): string {
@@ -30,6 +30,12 @@ export function describe(a: AuditEntry): string {
       const o = d.old as { role: string; status: string }; const n = d.new as { role: string; status: string };
       return `${d.email}: ${o.role}/${o.status} → ${n.role}/${n.status}`;
     }
+    case 'account.invited': return `Judge invitation created for ${d.email}`;
+    case 'account.temporary_created': return `Temporary-password account created for ${d.email}`;
+    case 'account.password_changed': return 'Mandatory password change completed';
+    case 'invitation.resent': return `Invitation resent to ${d.email}`;
+    case 'invitation.revoked': return `Invitation revoked for ${d.email}`;
+    case 'invitation.accepted': return `Invitation accepted by ${d.email}`;
     case 'team.created': return `Team ${(d as { team_code?: string }).team_code} registered`;
     case 'team.updated': return `Team ${((d.new ?? {}) as { team_code?: string }).team_code} updated`;
     case 'team.deleted': return `Team ${(d as { team_code?: string }).team_code} deleted`;

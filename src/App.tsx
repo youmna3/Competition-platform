@@ -4,7 +4,7 @@ import { useAuth } from './context/AuthContext';
 import { supabaseConfigured } from './lib/supabase';
 import Layout from './components/Layout';
 import { Alert, Spinner } from './components/ui';
-import { ForgotPasswordPage, LoginPage, PendingPage, ResetPasswordPage, SignupPage, homeFor } from './pages/auth/AuthPages';
+import { ForgotPasswordPage, LoginPage, PendingPage, ResetPasswordPage, SetNewPasswordPage, homeFor } from './pages/auth/AuthPages';
 import JudgeHome from './pages/judge/JudgeHome';
 import EvaluationPage from './pages/judge/EvaluationPage';
 import LeaderboardPage from './pages/LeaderboardPage';
@@ -24,6 +24,7 @@ function RequireAuth({ children, admin }: { children: ReactNode; admin?: boolean
   if (!session) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (!profile) return <Spinner label="Loading your profile…" />;
   if (profile.status !== 'approved') return <Navigate to="/pending" replace />;
+  if (profile.password_change_required) return <Navigate to="/set-new-password" replace />;
   if (admin && !isAdmin) return <Navigate to="/judge" replace />;
   return <>{children}</>;
 }
@@ -49,9 +50,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/set-new-password" element={<SetNewPasswordPage />} />
       <Route path="/pending" element={<PendingPage />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />

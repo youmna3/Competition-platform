@@ -1,10 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Clock, MailCheck, ShieldX, Trophy } from 'lucide-react';
+import { Clock, ShieldX, Trophy } from 'lucide-react';
 import { supabase, errorMessage } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, Button, Card, Field, Input } from '@/components/ui';
 import { Brand } from '@/components/Layout';
+import { acceptMyInvitation, completeRequiredPasswordChange } from '@/lib/api';
 
 function BrandPanel() {
   return (
@@ -76,9 +77,10 @@ function AuthShell({ title, subtitle, children, footer }: { title: string; subti
   );
 }
 
-export function homeFor(profile: { role: string; status: string } | null) {
+export function homeFor(profile: { role: string; status: string; password_change_required?: boolean } | null) {
   if (!profile) return '/login';
   if (profile.status !== 'approved') return '/pending';
+  if (profile.password_change_required) return '/set-new-password';
   return profile.role === 'admin' ? '/admin' : '/judge';
 }
 
@@ -92,7 +94,7 @@ export function LoginPage() {
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from;
 
-  if (!loading && session && profile) return <Navigate to={from && profile.status === 'approved' ? from : homeFor(profile)} replace />;
+  if (!loading && session && profile) return <Navigate to={from && profile.status === 'approved' && !profile.password_change_required ? from : homeFor(profile)} replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,7 +110,7 @@ export function LoginPage() {
     <AuthShell
       title="Sign in"
       subtitle="Judges and administrators of the DEMI & DECI competitions"
-      footer={<>New judge? <Link to="/signup" className="font-semibold text-brand-600 hover:underline">Create an account</Link></>}
+      footer="Accounts are created and invited by competition administrators."
     >
       <form onSubmit={submit} className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
@@ -122,72 +124,6 @@ export function LoginPage() {
           <Link to="/forgot-password" className="text-sm font-medium text-brand-600 hover:underline">Forgot password?</Link>
         </div>
         <Button type="submit" className="w-full" size="lg" loading={busy}>Sign in</Button>
-      </form>
-    </AuthShell>
-  );
-}
-
-export function SignupPage() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<'confirm' | 'pending' | null>(null);
-  const navigate = useNavigate();
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (password.length < 8) return setError('Password must be at least 8 characters.');
-    if (password !== confirm) return setError('Passwords do not match.');
-    setBusy(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { full_name: name.trim() }, emailRedirectTo: `${window.location.origin}/pending` },
-    });
-    setBusy(false);
-    if (error) return setError(error.message);
-    if (data.session) navigate('/pending', { replace: true });
-    else setDone('confirm');
-  };
-
-  if (done) {
-    return (
-      <AuthShell title="Check your inbox" footer={<Link to="/login" className="font-semibold text-brand-600 hover:underline">Back to sign in</Link>}>
-        <div className="flex flex-col items-center text-center">
-          <MailCheck className="mb-3 h-10 w-10 text-brand-600" />
-          <p className="text-sm text-slate-600">
-            We sent a confirmation link to <strong>{email}</strong>. After confirming, an administrator must approve your judge account before you can access teams.
-          </p>
-        </div>
-      </AuthShell>
-    );
-  }
-
-  return (
-    <AuthShell
-      title="Judge registration"
-      subtitle="Accounts are activated after administrator approval"
-      footer={<>Already registered? <Link to="/login" className="font-semibold text-brand-600 hover:underline">Sign in</Link></>}
-    >
-      <form onSubmit={submit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
-        <Field label="Full name" required>
-          <Input required maxLength={200} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
-        <Field label="E-mail" required>
-          <Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </Field>
-        <Field label="Password" hint="At least 8 characters" required>
-          <Input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </Field>
-        <Field label="Confirm password" required>
-          <Input type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-        </Field>
-        <Button type="submit" className="w-full" size="lg" loading={busy}>Create account</Button>
       </form>
     </AuthShell>
   );
@@ -225,7 +161,7 @@ export function ForgotPasswordPage() {
 }
 
 export function ResetPasswordPage() {
-  const { session } = useAuth();
+  const { session, refreshProfile } = useAuth();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -237,7 +173,15 @@ export function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (error) setError(errorMessage(error));
-    else navigate('/', { replace: true });
+    else {
+      try {
+        if (new URLSearchParams(window.location.search).get('invitation') === '1') await acceptMyInvitation();
+        await refreshProfile();
+        navigate('/', { replace: true });
+      } catch (activationError) {
+        setError(errorMessage(activationError));
+      }
+    }
   };
   return (
     <AuthShell title="Choose a new password">
@@ -256,6 +200,54 @@ export function ResetPasswordPage() {
   );
 }
 
+export function SetNewPasswordPage() {
+  const { session, profile, loading, refreshProfile, signOut } = useAuth();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+
+  if (loading) return null;
+  if (!session) return <Navigate to="/login" replace />;
+  if (profile && !profile.password_change_required) return <Navigate to={homeFor(profile)} replace />;
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    if (password.length < 12 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      return setError('Use at least 12 characters with uppercase, lowercase, a number and a symbol.');
+    }
+    if (password !== confirmPassword) return setError('The passwords do not match.');
+    setBusy(true);
+    try {
+      await completeRequiredPasswordChange(password);
+      await refreshProfile();
+      navigate('/', { replace: true });
+    } catch (changeError) {
+      setError(errorMessage(changeError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AuthShell title="Set a new password" subtitle="You must replace the temporary password before accessing the judging platform.">
+      <form onSubmit={submit} className="space-y-4">
+        {error && <Alert tone="error">{error}</Alert>}
+        <Field label="New password" hint="At least 12 characters, including uppercase, lowercase, a number and a symbol" required>
+          <Input type="password" required minLength={12} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        </Field>
+        <Field label="Confirm new password" required>
+          <Input type="password" required minLength={12} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+        </Field>
+        <Button type="submit" className="w-full" loading={busy}>Set password and continue</Button>
+        <Button type="button" variant="ghost" className="w-full" onClick={() => void signOut()}>Sign out</Button>
+      </form>
+    </AuthShell>
+  );
+}
+
 export function PendingPage() {
   const { session, profile, loading, signOut, refreshProfile } = useAuth();
   const [checking, setChecking] = useState(false);
@@ -270,7 +262,7 @@ export function PendingPage() {
         <p className="text-sm text-slate-600">
           {blocked
             ? 'Your judge account has been deactivated or was not approved. Contact the competition administrator if you believe this is a mistake.'
-            : <>Thanks for registering, <strong>{profile?.full_name || session.user.email}</strong>. An administrator needs to approve your account and assign teams before you can start judging. This page updates automatically.</>}
+            : <>Your invited account for <strong>{profile?.full_name || session.user.email}</strong> is not active yet. Open the invitation link, set your password, or contact an administrator if the link expired.</>}
         </p>
         <div className="mt-6 flex gap-2">
           {!blocked && (

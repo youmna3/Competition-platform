@@ -1,0 +1,13 @@
+project_id = "judging-platform"
+
+[auth]
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+
+# Authentication is verified explicitly with auth.getUser inside the function
+# so this works with both legacy and asymmetric Supabase signing keys.
+[functions.admin-user-invitations]
+verify_jwt = false
+

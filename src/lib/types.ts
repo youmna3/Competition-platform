@@ -9,10 +9,27 @@ export interface Profile {
   full_name: string;
   role: AppRole;
   status: AccountStatus;
+  password_change_required: boolean;
   reviewed_at: string | null;
   reviewed_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+export interface UserInvitation {
+  id: string;
+  auth_user_id: string;
+  email: string;
+  full_name: string;
+  status: 'pending' | 'accepted' | 'revoked';
+  invited_by: string;
+  invited_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  last_sent_at: string;
+  send_count: number;
 }
 
 export interface Governorate {
