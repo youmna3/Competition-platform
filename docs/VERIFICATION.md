@@ -56,4 +56,6 @@ Screenshots are in `docs/screenshots/`.
 
 - `tsc --noEmit` (strict): clean.
 - `vite build`: succeeds.
-- `vitest`: 27 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation, missing/failed API response handling, successful rubric hydration, admin-route protection, and side-effect-free rubric preview).
+- `vitest`: 30 tests passing (scoring, seven-template consistency, ranking, import parsing, draft validation and publishing controls, missing/failed API response handling, successful rubric hydration, admin-route protection, side-effect-free rubric preview, responsive navigation controls, and shrink-safe rubric editor layouts).
+
+The full-stack browser harness now also contains an administrator Grade 5 clone/edit/add/save/reload/preview/publish regression and width checks at 375, 768, 1024, 1280 and 1920 pixels. These new browser checks have not been executed on the current Windows machine because its local PostgreSQL/Supabase test stack is unavailable.

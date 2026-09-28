@@ -1,6 +1,6 @@
 import clsx from 'clsx';
-import { useState, type ReactNode } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { BarChart3, BookOpen, ClipboardCheck, History, LayoutDashboard, LogIn, LogOut, Menu, Trophy, Users, UsersRound, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -9,7 +9,7 @@ interface NavItem { to: string; label: string; icon: ReactNode; end?: boolean }
 /** iSchool primary logo + product name. `inverted` = white logo for blue backgrounds. */
 export function Brand({ inverted = false, to = '/' }: { inverted?: boolean; to?: string }) {
   return (
-    <Link to={to} className="flex items-center gap-3" aria-label="iSchool Judging Platform — home">
+    <Link to={to} className="flex min-w-0 shrink-0 items-center gap-3" aria-label="iSchool Judging Platform — home">
       <img
         src={inverted ? '/brand/ischool-logo-white.svg' : '/brand/ischool-logo.svg'}
         alt="iSchool"
@@ -30,6 +30,21 @@ export default function Layout() {
   const { profile, isAdmin, isApproved, signOut, session } = useAuth();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => { setOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    const desktop = window.matchMedia('(min-width: 1600px)');
+    const closeOnDesktop = (event: MediaQueryListEvent) => { if (event.matches) setOpen(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+      desktop.removeEventListener('change', closeOnDesktop);
+    };
+  }, [open]);
 
   const items: NavItem[] = [];
   if (isAdmin) {
@@ -49,9 +64,9 @@ export default function Layout() {
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="brand-stripe h-1" aria-hidden />
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-3 px-4 sm:px-6">
           <Brand />
-          <nav className="hidden items-center gap-1 xl:flex">
+          <nav className="hidden min-w-0 items-center gap-1 min-[1600px]:flex" aria-label="Primary navigation">
             {items.map((i) => (
               <NavLink
                 key={i.to}
@@ -69,7 +84,7 @@ export default function Layout() {
               </NavLink>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 shrink-0 items-center gap-2">
             {session ? (
               <>
                 <div className="hidden text-right sm:block">
@@ -96,14 +111,26 @@ export default function Layout() {
                 <LogIn size={16} /> Sign in
               </Link>
             )}
-            <button className="rounded-full p-2 text-slate-600 hover:bg-slate-100 xl:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu">
+            <button
+              className="rounded-full p-2 text-slate-600 hover:bg-slate-100 min-[1600px]:hidden"
+              onClick={() => setOpen((o) => !o)}
+              aria-label={open ? 'Close menu' : 'Open menu'}
+              aria-expanded={open}
+              aria-controls="responsive-navigation"
+            >
               {open ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>
         {open && (
-          <div className="border-t border-slate-200 bg-white px-4 py-3 xl:hidden">
-            <nav className="grid gap-1">
+          <div id="responsive-navigation" className="max-h-[calc(100vh-4.25rem)] overflow-y-auto border-t border-slate-200 bg-white px-4 py-3 min-[1600px]:hidden">
+            <nav className="mx-auto grid max-w-7xl gap-1" aria-label="Responsive navigation">
+              {session && (
+                <div className="mb-2 min-w-0 rounded-xl bg-slate-50 px-3 py-2 sm:hidden">
+                  <p className="truncate text-sm font-medium text-slate-900">{profile?.full_name || profile?.email}</p>
+                  <p className="truncate text-xs text-slate-500">{profile?.email}</p>
+                </div>
+              )}
               {items.map((i) => (
                 <NavLink
                   key={i.to}
@@ -125,9 +152,9 @@ export default function Layout() {
                     await signOut();
                     navigate('/login');
                   }}
-                  className="flex items-center gap-2 rounded-full px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
+                  className="flex min-w-0 items-center gap-2 rounded-full px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
                 >
-                  <LogOut size={16} /> Sign out ({profile?.email})
+                  <LogOut className="shrink-0" size={16} /> Sign out
                 </button>
               ) : (
                 <NavLink to="/login" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-full px-3 py-2.5 text-sm font-medium text-brand-700">
@@ -138,7 +165,7 @@ export default function Layout() {
           </div>
         )}
       </header>
-      <main className="mx-auto min-h-[calc(100vh-10rem)] max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto min-h-[calc(100vh-10rem)] w-full min-w-0 max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <Outlet />
       </main>
       <footer className="border-t border-slate-200 bg-white">

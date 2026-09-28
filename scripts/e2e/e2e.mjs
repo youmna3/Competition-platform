@@ -252,8 +252,79 @@ try {
   await a.p.getByText('score.changed').first().waitFor();
   await a.p.screenshot({ path: `${SHOTS}/13-audit.png` });
 
+  // -------------------------------------------------------- rubric versioning
+  console.log('9. Administrator rubric draft/save/preview/publish');
+  const oldG5 = sql("select template_id from competitions where code='DEMI_G5'");
+  const oldG5Description = sql(`select description from rubric_criteria where template_id='${oldG5}' and not is_bonus order by section_id,position limit 1`);
+  const resultsBeforeRubricPublish = sql("select coalesce(jsonb_agg(to_jsonb(x) order by team_id),'[]') from admin_team_results() x where competition_code='DEMI_G5'");
+  await a.p.goto(`${BASE}/admin/rubrics`);
+  await a.p.getByRole('button', { name: 'Grade 5', exact: true }).click();
+  await a.p.getByRole('button', { name: 'Edit as new version' }).click();
+  const editor = a.p.getByTestId('rubric-editor');
+  await editor.waitFor();
+  const firstCriterion = editor.getByTestId('rubric-section-editor').first().getByTestId('criterion-editor').first();
+  await firstCriterion.getByLabel('Criterion 1 description').fill('E2E persisted revised criterion');
+  const bonusEditor = editor.getByTestId('rubric-section-editor').last();
+  const oldBonusWeight = Number(await bonusEditor.getByLabel(/Section \d+ weight/).inputValue());
+  await bonusEditor.getByRole('button', { name: 'Add criterion' }).click();
+  const addedCriterion = bonusEditor.getByTestId('criterion-editor').last();
+  await addedCriterion.getByLabel(/Criterion \d+ title/).fill('E2E persisted bonus criterion');
+  await addedCriterion.getByLabel(/Criterion \d+ description/).fill('E2E persisted bonus evidence');
+  await bonusEditor.getByLabel(/Section \d+ weight/).fill(String(oldBonusWeight + 5));
+  await editor.getByRole('button', { name: 'Save draft' }).click();
+  await a.p.getByText('Draft saved. You can now validate, preview or publish it.').waitFor();
+  ok(await editor.isVisible(), 'saving keeps the draft editor and Publish button available');
+
+  await a.p.reload();
+  await a.p.getByRole('button', { name: 'Grade 5', exact: true }).click();
+  await a.p.getByRole('button', { name: /draft/ }).click();
+  await a.p.getByRole('button', { name: 'Continue editing' }).click();
+  await a.p.getByTestId('rubric-editor').waitFor();
+  ok(await a.p.getByLabel('Criterion 1 description').first().inputValue() === 'E2E persisted revised criterion', 'rubric criterion edit persists after refresh');
+  ok(await a.p.getByDisplayValue('E2E persisted bonus criterion').isVisible(), 'added rubric criterion persists after refresh');
+  await a.p.getByRole('button', { name: 'Validate draft' }).click();
+  await a.p.getByText('Ready to publish').waitFor();
+  await a.p.getByRole('link', { name: 'Preview saved draft' }).click();
+  await a.p.getByText('E2E persisted bonus criterion').waitFor();
+  ok(await a.p.getByText('Preview mode').isVisible(), 'saved rubric draft opens in read-only preview');
+  await a.p.goBack();
+  await a.p.getByRole('button', { name: 'Grade 5', exact: true }).click();
+  await a.p.getByRole('button', { name: /draft/ }).click();
+  await a.p.getByRole('button', { name: 'Continue editing' }).click();
+  await a.p.getByTestId('rubric-editor').getByRole('button', { name: 'Publish version' }).click();
+  await a.p.getByRole('button', { name: 'Edit as new version' }).waitFor();
+  const newG5 = sql("select template_id from competitions where code='DEMI_G5'");
+  ok(newG5 !== oldG5, 'publishing activates a separate rubric version');
+  ok(sql(`select count(*) from rubric_criteria where template_id='${newG5}' and title='E2E persisted bonus criterion'`) === '1', 'published rubric contains persisted changes');
+  ok(sql(`select description from rubric_criteria where template_id='${oldG5}' and not is_bonus order by section_id,position limit 1`) === oldG5Description, 'historical published rubric remains unchanged');
+  ok(sql("select coalesce(jsonb_agg(to_jsonb(x) order by team_id),'[]') from admin_team_results() x where competition_code='DEMI_G5'") === resultsBeforeRubricPublish, 'existing Grade 5 results remain unchanged');
+
+  // ---------------------------------------------------------- responsive admin
+  console.log('10. Responsive navigation and rubric management');
+  for (const width of [375, 768, 1024, 1280, 1920]) {
+    await a.p.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+    await a.p.goto(`${BASE}/admin/rubrics`);
+    await a.p.getByTestId('rubric-management').waitFor();
+    const pageOverflow = await a.p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    ok(!pageOverflow, `${width}px rubric page has no horizontal document scroll`);
+    const topBar = await a.p.locator('header > div').nth(1).boundingBox();
+    ok(Math.round(topBar?.height || 0) === 64, `${width}px header bar stays 64px high`);
+    if (width < 1600) {
+      const menu = a.p.getByRole('button', { name: 'Open menu' });
+      ok(await menu.isVisible(), `${width}px uses the hamburger navigation`);
+      await menu.click();
+      ok(await a.p.getByRole('navigation', { name: 'Responsive navigation' }).isVisible(), `${width}px menu opens`);
+      await a.p.getByRole('button', { name: 'Close menu' }).click();
+      ok(!(await a.p.getByRole('navigation', { name: 'Responsive navigation' }).isVisible()), `${width}px menu closes`);
+    } else {
+      ok(await a.p.getByRole('navigation', { name: 'Primary navigation' }).isVisible(), `${width}px uses full navigation`);
+      ok(!(await a.p.getByRole('button', { name: 'Open menu' }).isVisible()), `${width}px hides the hamburger`);
+    }
+    await a.p.screenshot({ path: `${SHOTS}/responsive-rubrics-${width}.png`, fullPage: true });
+  }
+
   // ---------------------------------------------------------------- mobile
-  console.log('9. Mobile layout');
+  console.log('11. Mobile judging layout');
   const m = await ctx({ width: 390, height: 844 });
   await login(m.p, 'judge2@demo.test');
   await openTeam(m.p, 'DEMI', 'Grade 5', 'Luxor Robotics');
