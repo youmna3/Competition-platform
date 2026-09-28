@@ -102,6 +102,53 @@
       ]}
     },
     {
+      "id": "DEMI_G6",
+      "title": "Stage 3 Judges' Rubric - DEMI Grade 6",
+      "subtitle": "Robotics + AI Project - Stage 3 Judge Evaluation",
+      "source_pdf": "DEMI_Grade_6_Judges_Rubric_Revised.pdf",
+      "core_max": 100,
+      "bonus_max": 15,
+      "sections": [
+        { "title": "Problem, Research & Solution", "weight": 15, "criteria": [
+          ["Problem, user & research", "Problem and target user are specific, important, and supported by relevant research or comparison with existing ideas."],
+          ["Solution fit", "Main functions clearly solve the identified problem and remain consistent with the same user and use case."],
+          ["Value & overall concept coherence", "Hardware, programming, AI, robotics, and user value form one coherent solution rather than separate features."]
+        ]},
+        { "title": "Hardware, System & Robotics", "weight": 30, "criteria": [
+          ["Purposeful hardware selection", "Kit, sensors, servos/actuators, and other parts are chosen because they best support the solution."],
+          ["Input/output roles", "Sensor inputs and actuator/servo outputs are technically correct and clearly explained."],
+          ["Circuit & system design", "Circuit and block/system design are correct, organized, and match the implemented prototype."],
+          ["Robot movement sequence", "Robot movement/behavior is logical, coordinated, and matches the planned sequence or task."],
+          ["Hardware integration & control", "Arduino/controller reliably connects sensing, decisions, and physical movement as one system."],
+          ["Best hardware use & reliability", "Team uses available hardware capabilities effectively and demonstrates consistent, safe, repeatable operation."]
+        ]},
+        { "title": "Programming & AI", "weight": 20, "criteria": [
+          ["Core programming logic", "Events, variables, conditions, loops, and outputs correctly control the system."],
+          ["Functions / lists / stronger logic", "Uses functions, lists, or other suitable concepts to organize and strengthen the program."],
+          ["AI/ML approach & relevance", "AI/ML type (classification, regression, clustering, etc.) is appropriate and meaningfully supports the solution."],
+          ["AI evidence & system connection", "Shows evidence of the AI concept/model and explains how its decision connects to the robot/system behavior."]
+        ]},
+        { "title": "Prototype & Testing", "weight": 15, "criteria": [
+          ["End-to-end prototype", "Core sensing, decision, programming, and robot behavior work together in the final demonstration."],
+          ["Evidence of testing", "Team provides repeated trials, measurements, logs, videos/screenshots, or success counts that prove testing occurred."],
+          ["Improvement from results", "Testing leads to meaningful changes in thresholds, movement, timing, model behavior, or reliability."]
+        ]},
+        { "title": "Business & Value", "weight": 5, "criteria": [
+          ["Target customer & value", "Business idea identifies the user/customer and explains the practical value of the solution."]
+        ]},
+        { "title": "Teamwork & Presentation", "weight": 15, "criteria": [
+          ["Shared ownership & teamwork", "Members have clear roles, contribute meaningfully, and support one another during build/demo."],
+          ["Communication & technical explanation", "Team explains the robot, hardware, code, AI, and testing clearly and accurately."],
+          ["Presentation, demo & Q&A", "Presentation is structured, confident, and within time; questions are answered with evidence and understanding."]
+        ]}
+      ],
+      "bonus": { "title": "Extra Requirements / Optional Bonus", "criteria": [
+        ["Advanced programming feature", "Optional advanced code feature meaningfully improves the existing system and is supported by code/logic evidence."],
+        ["Advanced AI/ML feature", "Optional AI/ML feature goes deeper than the core AI requirement and is supported by evidence or a credible prototype."],
+        ["Godot application", "Optional Godot feature meaningfully explains, simulates, or supports the same project concept and includes design/code evidence."]
+      ]}
+    },
+    {
       "id": "DECI_L1",
       "title": "Stage 3 Judges' Rubric - DECI Level 1",
       "subtitle": "MIT App Inventor + Kit Project - Stage 3 Judge Evaluation",

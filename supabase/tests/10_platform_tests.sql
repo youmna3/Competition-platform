@@ -64,21 +64,24 @@ grant execute on function tests.arr(int,int,int) to anon, authenticated;
 -- -----------------------------------------------------------------------------
 -- 0. Rubric integrity in the database
 -- -----------------------------------------------------------------------------
-select tests.ok((select count(*) from rubric_templates) = 6, 'six rubric templates');
+select tests.ok((select count(*) from rubric_templates) = 7, 'seven rubric templates');
 select tests.ok((select bool_and(core_max = 100) from rubric_templates), 'every rubric core total is 100');
-select tests.ok((select count(*) from rubric_criteria where not is_bonus) = 120, '6 x 20 core criteria');
+select tests.ok((select count(*) from rubric_criteria where not is_bonus) = 140, '7 x 20 core criteria');
 select tests.ok((select bonus_max from rubric_templates where id = 'DECI_L45') = 15, 'L4&5 bonus max 15 as in PDF');
-select tests.ok((select count(*) from rubric_templates where id <> 'DECI_L45' and bonus_max = 10) = 5, 'other bonus max 10');
+select tests.ok((select bonus_max from rubric_templates where id = 'DEMI_G6') = 15, 'Grade 6 bonus max 15 as in PDF');
+select tests.ok((select count(*) from rubric_templates where id not in ('DECI_L45', 'DEMI_G6') and bonus_max = 10) = 5, 'other bonus max 10');
 select tests.ok(not exists (
   select 1 from rubric_sections s where weight <> (select count(*)*5 from rubric_criteria c where c.section_id = s.id)
 ), 'every section weight = rows x 5');
 select tests.ok((select string_agg(weight::text, ',' order by position) from rubric_sections where template_id='DEMI_G4' and not is_bonus) = '20,15,25,15,10,15', 'G4 weights');
 select tests.ok((select string_agg(weight::text, ',' order by position) from rubric_sections where template_id='DEMI_G5' and not is_bonus) = '15,25,20,15,10,15', 'G5 weights');
+select tests.ok((select string_agg(weight::text, ',' order by position) from rubric_sections where template_id='DEMI_G6' and not is_bonus) = '15,30,20,15,5,15', 'G6 weights');
 select tests.ok((select string_agg(weight::text, ',' order by position) from rubric_sections where template_id='DECI_L1' and not is_bonus) = '15,20,20,15,10,5,15', 'L1 weights');
 select tests.ok((select string_agg(weight::text, ',' order by position) from rubric_sections where template_id='DECI_L2' and not is_bonus) = '15,25,15,15,10,5,15', 'L2 weights');
 select tests.ok((select string_agg(weight::text, ',' order by position) from rubric_sections where template_id='DECI_L3' and not is_bonus) = '15,25,20,10,10,5,15', 'L3 weights');
 select tests.ok((select string_agg(weight::text, ',' order by position) from rubric_sections where template_id='DECI_L45' and not is_bonus) = '10,25,20,15,15,15', 'L4&5 weights');
 select tests.ok((select count(*) from governorates) = 5, 'five governorates');
+select tests.ok((select competition_code from levels where code = 'G6') = 'DEMI_G6', 'Grade 6 has a separate DEMI competition and leaderboard');
 select tests.ok((select string_agg(template_id, ',' order by l.code) from levels l join competitions c on c.code = l.competition_code where l.code in ('L4','L5')) = 'DECI_L45,DECI_L45', 'L4 and L5 share the combined rubric');
 
 -- -----------------------------------------------------------------------------
@@ -321,9 +324,10 @@ select tests.ok((select (r->>'ok')::boolean = false and jsonb_array_length(r->'e
   {"team_code":"N2","name":"","project_name":"P2","level_code":"G9","governorate":"Giza","judge_emails":["nobody@example.com"]}
 ]'::jsonb) r), 'invalid import reports row errors');
 select tests.ok(not exists (select 1 from teams where team_code = 'N1'), 'invalid import writes nothing (atomic)');
-select tests.ok((select (r->>'ok')::boolean and (r->>'inserted')::int = 2 and (r->>'updated')::int = 1 and (r->>'assignments_added')::int = 3 from admin_import_teams('[
+select tests.ok((select (r->>'ok')::boolean and (r->>'inserted')::int = 3 and (r->>'updated')::int = 1 and (r->>'assignments_added')::int = 5 from admin_import_teams('[
   {"team_code":"N1","name":"New One","project_name":"P1","level_code":"G4","governorate":"cairo","judge_emails":["JUDGE1@example.com","judge2@example.com"]},
   {"team_code":"N2","name":"New Two","project_name":"P2","level_code":"L5","governorate":"SUZ","judge_emails":["judge3@example.com"]},
+  {"team_code":"N3","name":"Grade Six Team","project_name":"Rescue Robot","level_code":"G6","governorate":"CAI","judge_emails":["judge1@example.com","judge2@example.com"]},
   {"team_code":"T5","name":"Team Five","project_name":"Robo Arm v2","level_code":"L1","governorate":"MNF","judge_emails":[]}
 ]'::jsonb) r), 'valid import inserts/updates teams and assigns judges');
 select tests.ok((select project_name from teams where team_code='T5') = 'Robo Arm v2', 'import upserts by team ID');
@@ -333,7 +337,30 @@ select tests.ok((select (r->>'ok')::boolean = false from admin_import_teams('[
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 9. Disabled judges lose access immediately
+-- 9. Grade 6 judging, permissions, averaging and separate leaderboard
+-- -----------------------------------------------------------------------------
+select tests.login('j1'); set role authenticated;
+insert into ids values ('e7', start_evaluation((select id from teams where team_code='N3')));
+select tests.ok((select count(*) from evaluation_scores where evaluation_id = (select v from ids where k='e7')) = 23, 'G6 evaluation has 20 core + 3 bonus rows');
+select submit_evaluation((select v from ids where k='e7'), tests.payload('DEMI_G6', tests.arr(15, 2, 5), array[5,5,5]));
+reset role;
+
+select tests.login('j2'); set role authenticated;
+select tests.ok((select count(*) from evaluations where team_id = (select id from teams where team_code='N3')) = 0, 'G6 judge cannot see the other judge evaluation');
+insert into ids values ('e8', start_evaluation((select id from teams where team_code='N3')));
+select submit_evaluation((select v from ids where k='e8'), tests.payload('DEMI_G6', tests.arr(15, 4, 5), array[5,null,null]));
+select tests.ok((select count(*) from evaluations where team_id = (select id from teams where team_code='N3')) = 1, 'G6 judge sees only their independent evaluation');
+reset role;
+
+select tests.login('admin'); set role authenticated;
+select tests.ok((select is_complete and avg_core = 90 and avg_bonus = 10 from admin_team_results() where team_code='N3'), 'G6 result averages two judges and keeps bonus separate');
+select tests.ok((select count(*) = 1 and min(team_code) = 'N3' from get_leaderboard(p_competition := 'DEMI_G6')), 'G6 has a separate leaderboard');
+select tests.ok((select count(*) = 1 from get_leaderboard(p_competition := 'DEMI_G6', p_governorate := 'CAI')), 'G6 leaderboard supports governorate filtering');
+select tests.ok((select count(*) = 0 from get_leaderboard(p_competition := 'DEMI_G6', p_governorate := 'ALX')), 'G6 governorate filter excludes other governorates');
+reset role;
+
+-- -----------------------------------------------------------------------------
+-- 10. Disabled judges lose access immediately
 -- -----------------------------------------------------------------------------
 select tests.login('admin'); set role authenticated;
 update profiles set status = 'disabled' where email = 'judge3@example.com';
@@ -344,7 +371,7 @@ select tests.throws($$select start_evaluation((select id from public.teams where
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 10. Hard constraints
+-- 11. Hard constraints
 -- -----------------------------------------------------------------------------
 select tests.throws($$insert into evaluations (team_id, judge_id, template_id) select team_id, judge_id, template_id from evaluations limit 1$$, 'evaluations_team_judge_key', 'unique (team, judge) enforced');
 select tests.throws($$update evaluations set status = 'submitted', submitted_at = now(), core_scored_count = 3 where id = (select v from ids where k='e2') $$, 'submitted_complete', 'check constraint forbids incomplete submitted rows');

@@ -26,8 +26,8 @@ function toTemplate(t: (typeof rubrics.templates)[number]): RubricTemplate {
 const templates = rubrics.templates.map(toTemplate);
 
 describe('rubric templates', () => {
-  it('has the six PDF rubrics', () => {
-    expect(templates.map((t) => t.id)).toEqual(['DEMI_G4', 'DEMI_G5', 'DECI_L1', 'DECI_L2', 'DECI_L3', 'DECI_L45']);
+  it('has the seven PDF rubrics', () => {
+    expect(templates.map((t) => t.id)).toEqual(['DEMI_G4', 'DEMI_G5', 'DEMI_G6', 'DECI_L1', 'DECI_L2', 'DECI_L3', 'DECI_L45']);
   });
   it.each(templates.map((t) => [t.id, t] as const))('%s is internally consistent (weights = rows x 5, core = 100)', (_, t) => {
     expect(validateTemplate(t)).toEqual([]);
@@ -39,15 +39,16 @@ describe('rubric templates', () => {
     expect(w).toEqual({
       DEMI_G4: [20, 15, 25, 15, 10, 15],
       DEMI_G5: [15, 25, 20, 15, 10, 15],
+      DEMI_G6: [15, 30, 20, 15, 5, 15],
       DECI_L1: [15, 20, 20, 15, 10, 5, 15],
       DECI_L2: [15, 25, 15, 15, 10, 5, 15],
       DECI_L3: [15, 25, 20, 10, 10, 5, 15],
       DECI_L45: [10, 25, 20, 15, 15, 15],
     });
   });
-  it('bonus maximums follow the PDFs (L4&5 = 15, others = 10)', () => {
+  it('bonus maximums follow the PDFs (Grade 6 and L4&5 = 15)', () => {
     expect(Object.fromEntries(templates.map((t) => [t.id, t.bonus_max]))).toEqual({
-      DEMI_G4: 10, DEMI_G5: 10, DECI_L1: 10, DECI_L2: 10, DECI_L3: 10, DECI_L45: 15,
+      DEMI_G4: 10, DEMI_G5: 10, DEMI_G6: 15, DECI_L1: 10, DECI_L2: 10, DECI_L3: 10, DECI_L45: 15,
     });
   });
 });

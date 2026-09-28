@@ -1,6 +1,6 @@
 # Architecture
 
-## 1. Rubric analysis (from the six PDFs)
+## 1. Rubric analysis (from the seven PDFs)
 
 Every PDF has the same shape:
 
@@ -16,6 +16,7 @@ Because each row is worth 5 points, a section's weight always equals its number 
 |---|---|---|---|---|
 | `DEMI_G4` | App Lab Project | Problem, Research & Solution 20 (4) · UX & Prototype Design 15 (3) · Programming & Functionality 25 (5) · Testing & Improvement 15 (3) · Business & Value 10 (2) · Teamwork & Presentation 15 (3) | 100 | 2 rows, max 10 |
 | `DEMI_G5` | Arduino + AI Project | Problem, Research & Solution 15 (3) · Hardware & System Design 25 (5) · Programming & AI Integration 20 (4) · Prototype, Testing & Improvement 15 (3) · Business & Value 10 (2) · Teamwork & Presentation 15 (3) | 100 | 2 rows, max 10 |
+| `DEMI_G6` | Robotics + AI Project | Problem, Research & Solution 15 (3) · Hardware, System & Robotics 30 (6) · Programming & AI 20 (4) · Prototype & Testing 15 (3) · Business & Value 5 (1) · Teamwork & Presentation 15 (3) | 100 | **3 rows, max 15** |
 | `DECI_L1` | MIT App Inventor + Kit | Problem, Research & Solution 15 (3) · System, Circuit & Kit Use 20 (4) · Programming Logic 20 (4) · MIT App Inventor & User Experience 15 (3) · Testing & Integration 10 (2) · Business & Value 5 (1) · Teamwork & Presentation 15 (3) | 100 | 2 rows, max 10 |
 | `DECI_L2` | Arduino + Web Integration | Problem, Research & Solution 15 (3) · System, Circuit, Hardware & Kit 25 (5) · Programming & Control Logic 15 (3) · Web Interface Integration 15 (3) · Testing & Hardware Evidence 10 (2) · Business & Value 5 (1) · Teamwork & Presentation 15 (3) | 100 | 2 rows, max 10 |
 | `DECI_L3` | ESP32 + Track Integration | Problem, Research & Solution 15 (3) · System, Hardware, IoT & Circuit 25 (5) · Programming & AI / Data 20 (4) · Digital Identity & Track Integration 10 (2) · Testing & Validation 10 (2) · Business & Value 5 (1) · Teamwork & Presentation 15 (3) | 100 | 2 rows, max 10 |
@@ -23,7 +24,7 @@ Because each row is worth 5 points, a section's weight always equals its number 
 
 **Notes on the PDFs**
 
-- **Levels 4 & 5 bonus.** That PDF prints "Optional Bonus – max 15" and has three bonus rows. This differs from the brief's "up to 10", so the PDF value was kept. It is one value in `rubrics.json` / the database if the organizers decide otherwise.
+- **15-point bonuses.** The Grade 6 and Levels 4 & 5 PDFs each print "Optional Bonus – max 15" and contain three bonus rows; those PDF values are preserved.
 - **"Q&A" text.** The PDFs encode "Q&A" as `Q&A;` / `& &QA;`, which is a PDF encoding artefact. The rubric shows it as "Q&A".
 
 ## 2. Database design
@@ -34,8 +35,8 @@ auth.users ─1:1─ profiles(role admin|judge, status pending|approved|rejected
 rubric_templates ─< rubric_sections(weight, is_bonus) ─< rubric_criteria(title, description, max 5)
 score_levels (1..5 labels + descriptions)
 
-competitions (DEMI_G4, DEMI_G5, DECI_L1, DECI_L2, DECI_L3, DECI_L45) ── template_id, is_published
-levels (G4, G5, L1, L2, L3, L4, L5) ── competition_code   ← L4 and L5 both → DECI_L45
+competitions (DEMI_G4, DEMI_G5, DEMI_G6, DECI_L1, DECI_L2, DECI_L3, DECI_L45) ── template_id, is_published
+levels (G4, G5, G6, L1, L2, L3, L4, L5) ── competition_code   ← L4 and L5 both → DECI_L45
 governorates (Alexandria, Cairo, Monufia, Assiut, Suez)
 
 teams(team_code unique, name, project_name, level_code, governorate_code)
@@ -48,7 +49,7 @@ audit_log(actor, action, entity, team_id, evaluation_id, details jsonb)
 results_signal(competition_code, version)                          ← Realtime refresh trigger
 ```
 
-**Data-driven rubrics.** A single form component and a single set of SQL functions handle all six rubrics. `rubrics/rubrics.json` is the source for the seed migration, and it is checked against the PDF text by `scripts/verify_rubrics.py`.
+**Data-driven rubrics.** A single form component and a single set of SQL functions handle all seven rubrics. `rubrics/rubrics.json` is checked against every PDF by `scripts/verify_rubrics.py`. Grade 6 is installed by additive migration `20260928000005_add_demi_grade_6.sql`; the original migrations remain unchanged.
 
 ### Integrity guarantees in the database
 
@@ -88,7 +89,7 @@ Pending, rejected and disabled accounts see nothing.
 
 ## 3. Frontend
 
-- `src/components/RubricForm.tsx` is one renderer for all six templates. It covers the header, the scale legend, the sections with 1–5 radio buttons and notes, the bonus section, and the Score Summary.
+- `src/components/RubricForm.tsx` is one renderer for all seven templates. It covers the header, the scale legend, the sections with 1–5 radio buttons and notes, the bonus section, and the Score Summary.
 - `src/pages/judge/EvaluationPage.tsx` handles saving. Changes are queued with a debounce; saves run one at a time and retry automatically. Unsaved changes are flushed when the tab is hidden or the page is left. Submitting sends the complete on-screen state.
 - `src/pages/LeaderboardPage.tsx` shows DEMI and DECI tabs, the filters and publish controls. It refreshes on Realtime `results_signal` events and also polls every 30 seconds.
 - Admin pages cover the dashboard, teams (CRUD, import, assignment, bulk assign), judges (approval and roles), evaluations (per-judge view and reopen), and the audit log.

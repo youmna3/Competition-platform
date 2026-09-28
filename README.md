@@ -2,7 +2,7 @@
 
 A web app for Stage 3 judging of the DEMI and DECI competitions. It is built with **React + TypeScript + Tailwind CSS**, uses **Supabase** (Postgres, Auth, Row Level Security, Realtime) for data and login, and deploys on **Vercel**.
 
-- Six digital rubrics, stored in the database and taken word for word from the PDFs. One scoring engine runs all six.
+- Seven digital rubrics, stored in the database and taken word for word from the PDFs. One scoring engine runs all seven.
 - Two roles. **Administrators** manage judges, teams, assignments, publication and exports. **Judges** can only see and score the teams assigned to them.
 - Drafts save automatically. A form cannot be submitted until every core row is scored. Submitting twice (for example a double-click) never creates a duplicate.
 - Each judge's evaluation is stored separately. A team's official score is the **arithmetic mean of all its assigned judges' submitted core scores**, and the bonus is averaged separately.
@@ -16,14 +16,15 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design and [`docs/VER
 ## 1. Project layout
 
 ```
-rubrics/rubrics.json          Single source of truth for the six rubrics (verified against the PDFs)
+rubrics/rubrics.json          Single source of truth for the seven rubrics (verified against the PDFs)
 rubrics/pdf/                  The original PDF rubrics
 supabase/migrations/          SQL migrations — run in filename order
   ..0001_schema.sql           tables, enums, constraints
   ..0002_functions.sql        triggers, audit, scoring, RPC endpoints, leaderboards
   ..0003_security.sql         RLS policies, privileges, realtime
-  ..0004_seed_reference.sql   governorates, competitions, levels, 1–5 scale, all six rubrics (generated)
-supabase/tests/               SQL test-suite (113 assertions) + a tiny Supabase stub for plain Postgres
+  ..0004_seed_reference.sql   original governorates, competitions, levels and six rubrics
+  ..0005_add_demi_grade_6.sql additive DEMI Grade 6 rubric and competition
+supabase/tests/               SQL test-suite (123 assertions) + a tiny Supabase stub for plain Postgres
 scripts/verify_rubrics.py     Checks rubrics.json against the PDF text (every word, weight, maximum)
 scripts/gen_seed.py           Regenerates migration 0004 from rubrics.json
 scripts/test_db.sh            Runs all migrations + SQL tests on a scratch Postgres
@@ -94,7 +95,7 @@ To deploy from the CLI instead: `npm i -g vercel && vercel --prod`, after settin
 
 **Import columns:** `Team ID, Team Name, Project Name, Organization, Grade or Level, Governorate, Judge Emails`.
 - Organization is `DEMI` or `DECI`.
-- Grade or Level is `Grade 4`, `Grade 5`, `Level 1`–`Level 5`.
+- Grade or Level is `Grade 4`, `Grade 5`, `Grade 6`, or `Level 1`–`Level 5`.
 - DECI Level 4 and Level 5 teams both use the shared Levels 4 & 5 rubric but keep their actual level.
 - Judge emails are separated by `;` and must belong to approved accounts.
 - An import is all-or-nothing, and rows are matched to existing teams by Team ID.
@@ -103,7 +104,7 @@ To deploy from the CLI instead: `npm i -g vercel && vercel --prod`, after settin
 
 - Every row is scored 1–5 and worth 5 points, so each section's maximum equals its PDF weight. Each core total is 100.
 - Core and bonus totals are **recalculated by the database** on every save. The browser total is only a live preview.
-- The **optional bonus** is recorded separately and never added to the core. Its maximum comes from each PDF: **10**, except **DECI Levels 4 & 5, which is 15** (three bonus rows, as printed on that PDF).
+- The **optional bonus** is recorded separately and never added to the core. Its maximum comes from each PDF: **10**, except **DEMI Grade 6** and **DECI Levels 4 & 5**, which are **15** (three bonus rows each, as printed on those PDFs).
 - A team's official score is the mean of the submitted core totals of **all judges currently assigned** to it. If any assigned judge hasn't submitted, the team is **pending**: it has no official score and doesn't appear on any leaderboard. Adding a judge makes the team pending again. An evaluation by a judge who has since been unassigned is kept, but it is not counted.
 - **Ties** share a rank (standard competition ranking, `1, 1, 3`). No tie-break rule is applied, and bonus points are **not** used to break ties. That policy is left for the organizers to confirm.
 - When the leaderboard is filtered (for example to Level 4 only, or to one governorate), ranks are recalculated within that view. The page says so when this happens.
@@ -125,10 +126,10 @@ The UI follows the iSchool brand guidelines (<https://brand.ischooltech.com>):
 ## 8. Testing
 
 ```bash
-# Rubric fidelity against the PDFs (needs poppler-utils / pdftotext)
+# Rubric fidelity against the PDFs (needs pdftotext or the pypdf package)
 python3 scripts/verify_rubrics.py rubrics/pdf
 
-# Database: migrations + 113 assertions on a scratch Postgres 15/16
+# Database: migrations + 123 assertions on a scratch Postgres 15/16
 PGHOST=... PGPORT=... PGUSER=postgres scripts/test_db.sh
 scripts/test_concurrency.sh
 

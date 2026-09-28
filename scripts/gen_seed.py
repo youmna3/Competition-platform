@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate the reference-data migration from rubrics/rubrics.json.
 
-The JSON file is the single source of truth for the six rubric templates
-(verified against the PDFs by scripts/verify_rubrics.py). Run:
+This historical generator reproduces the original six-rubric migration. Grade 6
+is deliberately excluded because it lives in the additive 0005 migration. Run:
 
     python3 scripts/gen_seed.py > supabase/migrations/20260928000004_seed_reference.sql
 """
@@ -33,7 +33,7 @@ w(",\n".join(f"  ({l['value']}, {q(l['label'])}, {q(l['description'])})" for l i
 w("on conflict (value) do update set label = excluded.label, description = excluded.description;")
 w("")
 
-for t in data["templates"]:
+for t in (item for item in data["templates"] if item["id"] != "DEMI_G6"):
     w(f"-- ---- {t['title']} ({t['source_pdf']})")
     w("insert into public.rubric_templates (id, title, subtitle, source_pdf, scale_instruction, guidance, core_max, bonus_max) values")
     w(f"  ({q(t['id'])}, {q(t['title'])}, {q(t['subtitle'])}, {q(t['source_pdf'])}, {q(data['scale_instruction'])}, {q(data['guidance'])}, {t['core_max']}, {t['bonus_max']})")

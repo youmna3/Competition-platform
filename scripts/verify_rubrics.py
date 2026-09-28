@@ -12,9 +12,9 @@ Checks, for every template:
   * the bonus maximum equals the PDF's "Optional Bonus - max N" and equals
     (bonus rows x 5);
   * the number of rows in the PDF equals the number of rows in the template.
-Requires `pdftotext` (poppler-utils).
+Uses `pdftotext` (poppler-utils) when available, or the `pypdf` package as a fallback.
 """
-import json, re, subprocess, sys, pathlib
+import json, re, shutil, subprocess, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 data = json.loads((ROOT / "rubrics" / "rubrics.json").read_text())
@@ -37,11 +37,21 @@ def check(cond, msg):
         failures += 1
         print("  FAIL:", msg)
 
+
+def extract_text(path: pathlib.Path) -> str:
+    if shutil.which("pdftotext"):
+        return subprocess.run(["pdftotext", str(path), "-"], capture_output=True, text=True, check=True).stdout
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise SystemExit("Install poppler-utils (pdftotext) or `python -m pip install pypdf` to verify rubrics") from exc
+    return "\n".join(page.extract_text() or "" for page in PdfReader(str(path)).pages)
+
 for t in data["templates"]:
     matches = [p for p in pdf_dir.glob("*.pdf") if p.name.endswith(t["source_pdf"])]
     if not matches:
         print(f"[{t['id']}] PDF {t['source_pdf']} not found in {pdf_dir}"); failures += 1; continue
-    raw = subprocess.run(["pdftotext", str(matches[0]), "-"], capture_output=True, text=True).stdout
+    raw = extract_text(matches[0])
     text = norm(raw)
     print(f"[{t['id']}] {t['title']}")
     check(norm(t["title"]) in text, "title")
@@ -90,6 +100,7 @@ for t in data["templates"]:
         "Team Name / #", "How to Score Every Row", "Project Name", "Judge Name", "Date",
         "Meets Expectations", "Weak", "Developing", "Strong", "Excellent", "(continued)",
         "Score Summary", "Section Subtotal", "Section Maximum", "Notes", "CORE TOTAL",
+        "Bonus does not reduce the core 100-point score. Apply any final competition cap/policy when recording official results.",
     ]
     for k in boiler:
         residual = residual.replace(k, " ")

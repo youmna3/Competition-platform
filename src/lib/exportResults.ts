@@ -226,6 +226,7 @@ export async function downloadImportTemplate() {
         rows: [
           { o: 'DEMI', g: 'Grade 4', v: 'Alexandria', j: 'Approved judge e-mails separated by ; (optional)' },
           { o: 'DEMI', g: 'Grade 5', v: 'Cairo', j: 'Leave empty to assign judges later' },
+          { o: 'DEMI', g: 'Grade 6', v: 'Cairo' },
           { o: 'DECI', g: 'Level 1', v: 'Monufia' },
           { o: 'DECI', g: 'Level 2', v: 'Assiut' },
           { o: 'DECI', g: 'Level 3', v: 'Suez' },

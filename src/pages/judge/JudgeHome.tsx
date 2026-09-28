@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Alert, Badge, Card, EmptyState, PageHeader, ProgressBar, Spinner } from '@/components/ui';
 
 const ORG_INFO: Record<Organization, { title: string; blurb: string; cls: string; ring: string }> = {
-  DEMI: { title: 'DEMI', blurb: 'Grade 4 · Grade 5', cls: 'from-demi-500 to-demi-600', ring: 'ring-demi-100' },
+  DEMI: { title: 'DEMI', blurb: 'Grade 4 · Grade 5 · Grade 6', cls: 'from-demi-500 to-demi-600', ring: 'ring-demi-100' },
   DECI: { title: 'DECI', blurb: 'Level 1 · Level 2 · Level 3 · Levels 4 & 5', cls: 'from-deci-500 to-deci-700', ring: 'ring-deci-100' },
 };
 

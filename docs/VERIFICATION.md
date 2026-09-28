@@ -4,7 +4,7 @@ Every check below was run against this codebase. They cover the eight verificati
 
 ## 1–2. Every digital rubric matches its PDF, including section maximums
 
-`python3 scripts/verify_rubrics.py rubrics/pdf` extracts the text of each PDF and checks the following for all six templates:
+`python3 scripts/verify_rubrics.py rubrics/pdf` extracts the text of each PDF and checks the following for all seven templates:
 
 - the title, subtitle, scale instruction, general guidance and the five score-level descriptions are present word for word;
 - every section title and every criterion title and description appears word for word in the PDF;
@@ -13,11 +13,11 @@ Every check below was run against this codebase. They cover the eight verificati
 - the "Optional Bonus – max N" value matches, and the bonus maximum equals bonus rows × 5;
 - a **residual check**: once every known string and form label is removed, no text is left over. This proves there is no criterion in the PDF that is missing from the app.
 
-Result: `ALL CHECKS PASSED` for all six rubrics. The seed migration then re-checks weights and totals when it runs, and `src/lib/scoring.test.ts` asserts the weights of each rubric.
+The verifier covers every Grade 6 title and description, all section weights, the 100-point core total, and the three-row 15-point bonus. The additive Grade 6 migration independently rejects an incorrect row count, section weight, or total, and `src/lib/scoring.test.ts` asserts the same structure.
 
-## 3–8. Database behaviour (`scripts/test_db.sh`, 113 assertions, all passing)
+## 3–8. Database behaviour (`scripts/test_db.sh`, 123 assertions)
 
-The suite runs the four migrations against PostgreSQL 16 with a Supabase auth stub. It then acts as the admin, three judges, a pending user and an anonymous visitor.
+The suite runs all five migrations against PostgreSQL 16 with a Supabase auth stub. It then acts as the admin, three judges, a pending user and an anonymous visitor.
 
 | Brief item | Evidence (assertions) |
 |---|---|
@@ -56,4 +56,4 @@ Screenshots are in `docs/screenshots/`.
 
 - `tsc --noEmit` (strict): clean.
 - `vite build`: succeeds.
-- `vitest`: 19 tests passing (scoring, template consistency, ranking, import parsing).
+- `vitest`: 20 tests passing (scoring, seven-template consistency, ranking, and import parsing).

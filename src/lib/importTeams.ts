@@ -31,7 +31,7 @@ export function normaliseHeader(h: string): keyof RawRow | null {
   return HEADER_ALIASES[k] ?? HEADER_ALIASES[k.replace(/ /g, '_')] ?? null;
 }
 
-/** Map organization + free-text grade/level to a level code (G4, G5, L1..L5). */
+/** Map organization + free-text grade/level to a level code (G4..G6, L1..L5). */
 export function resolveLevel(organization: string, gradeLevel: string, levels: Level[]): { code: string | null; error?: string } {
   const org = organization.trim().toUpperCase();
   const gl = gradeLevel.trim();
