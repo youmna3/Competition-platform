@@ -8,6 +8,7 @@ import type { Organization, Profile, Team, TeamJudge, TeamResult } from '@/lib/t
 import JudgePicker from '@/components/JudgePicker';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, OrgBadge, PageHeader, Select, Spinner, useToast } from '@/components/ui';
 import ImportTeamsModal from './ImportTeamsModal';
+import { hasTeamIdConflict } from '@/lib/importTeams';
 
 interface Draft { id?: string; team_code: string; name: string; project_name: string; organization: Organization | ''; level_code: string; governorate_code: string; judges: Set<string> }
 
@@ -96,17 +97,32 @@ export default function TeamsPage() {
       setDraftError('Please complete all required fields.');
       return;
     }
+    const organization = levelMap.get(draft.level_code)?.organization;
+    const duplicate = organization && hasTeamIdConflict(teams, organization, draft.team_code, draft.id);
+    if (duplicate) {
+      setDraftError(`Team ID "${draft.team_code.trim()}" is already registered in ${organization}.`);
+      return;
+    }
     setSaving(true);
     setDraftError(null);
     try {
-      const t = await saveTeam({ ...draft, id: draft.id });
+      const t = await saveTeam({
+        id: draft.id,
+        team_code: draft.team_code,
+        name: draft.name,
+        project_name: draft.project_name,
+        level_code: draft.level_code,
+        governorate_code: draft.governorate_code,
+      });
       await setTeamJudges(t.id, [...draft.judges]);
       toast('success', draft.id ? 'Team updated' : 'Team registered');
       setDraft(null);
       await load();
     } catch (e) {
       const msg = errorMessage(e);
-      setDraftError(/duplicate key/i.test(msg) ? `Team ID "${draft.team_code}" is already registered.` : msg);
+      setDraftError(/teams_organization_team_code_key|duplicate key/i.test(msg)
+        ? `Team ID "${draft.team_code.trim()}" is already registered in ${organization ?? 'this organization'}.`
+        : msg);
     } finally {
       setSaving(false);
     }
@@ -274,7 +290,7 @@ export default function TeamsPage() {
           <div className="space-y-4">
             {draftError && <Alert tone="error">{draftError}</Alert>}
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Unique team ID" required hint="Used to identify the team in results and imports">
+              <Field label="Team ID" required hint="Unique within the selected organization; DEMI and DECI may use the same ID">
                 <Input value={draft.team_code} maxLength={40} onChange={(e) => setDraft({ ...draft, team_code: e.target.value })} />
               </Field>
               <Field label="Team name" required>

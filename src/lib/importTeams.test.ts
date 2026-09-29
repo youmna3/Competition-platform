@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildImportRows, resolveLevel, splitEmails } from './importTeams';
-import type { Governorate, Level } from './types';
+import { buildImportRows, hasTeamIdConflict, resolveLevel, splitEmails, teamIdentityKey } from './importTeams';
+import type { Governorate, Level, Team } from './types';
 
 const levels: Level[] = [
   ['G4', 'DEMI', 'Grade 4', 'DEMI_G4'], ['G5', 'DEMI', 'Grade 5', 'DEMI_G5'], ['G6', 'DEMI', 'Grade 6', 'DEMI_G6'], ['L1', 'DECI', 'Level 1', 'DECI_L1'],
@@ -30,23 +30,35 @@ describe('buildImportRows', () => {
     const { rows, headerErrors } = buildImportRows(
       [
         { 'Team ID': 'T1', 'Team Name': 'One', 'Project Name': 'P', Organization: 'DEMI', 'Grade or Level': 'Grade 4', Governorate: 'Cairo', 'Judge Emails': 'A@x.com; b@x.com' },
-        { 'Team ID': 't1', 'Team Name': 'Dup', 'Project Name': 'P', Organization: 'DECI', 'Grade or Level': 'Level 9', Governorate: 'Giza', 'Judge Emails': 'c@x.com' },
+        { 'Team ID': 't1', 'Team Name': 'Other organization', 'Project Name': 'P', Organization: 'DECI', 'Grade or Level': 'Level 1', Governorate: 'Alexandria', 'Judge Emails': '' },
+        { 'Team ID': 'T1', 'Team Name': 'Same organization', 'Project Name': 'P', Organization: 'DEMI', 'Grade or Level': 'Grade 5', Governorate: 'Assiut', 'Judge Emails': '' },
         { 'Team ID': '', 'Team Name': '', 'Project Name': '', Organization: '', 'Grade or Level': '', Governorate: '', 'Judge Emails': '' },
       ],
       levels, govs, judges,
     );
     expect(headerErrors).toEqual([]);
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     expect(rows[0]).toMatchObject({ team_code: 'T1', level_code: 'G4', governorate: 'CAI', judge_emails: ['a@x.com', 'b@x.com'], errors: [] });
-    expect(rows[1].errors.join(' ')).toMatch(/Duplicate Team ID/);
-    expect(rows[1].errors.join(' ')).toMatch(/not a valid DECI/);
-    expect(rows[1].errors.join(' ')).toMatch(/Governorate/);
-    expect(rows[1].errors.join(' ')).toMatch(/no approved account/);
+    expect(rows[1]).toMatchObject({ team_code: 't1', organization: 'DECI', level_code: 'L1', errors: [] });
+    expect(rows[2].errors.join(' ')).toMatch(/Duplicate Team ID/);
   });
   it('reports missing columns', () => {
     expect(buildImportRows([{ foo: 1 }], levels, govs, judges).headerErrors.length).toBeGreaterThan(0);
   });
   it('splits e-mail lists', () => {
     expect(splitEmails('a@x.com, B@x.com;a@x.com | c@x.com')).toEqual(['a@x.com', 'b@x.com', 'c@x.com']);
+  });
+  it('keys duplicate validation by organization and case-insensitive Team ID', () => {
+    expect(teamIdentityKey('DEMI', 'G-18')).toBe(teamIdentityKey('demi', 'g-18'));
+    expect(teamIdentityKey('DEMI', 'G-18')).not.toBe(teamIdentityKey('DECI', 'G-18'));
+  });
+  it('applies the same organization-scoped rule to manual registration', () => {
+    const teams = [
+      { id: 'demi-team', team_code: 'G-18', organization: 'DEMI', level_code: 'G4' },
+      { id: 'deci-team', team_code: 'D-1', organization: 'DECI', level_code: 'L1' },
+    ] as Team[];
+    expect(hasTeamIdConflict(teams, 'DEMI', 'g-18')).toBe(true);
+    expect(hasTeamIdConflict(teams, 'DECI', 'G-18')).toBe(false);
+    expect(hasTeamIdConflict(teams, 'DEMI', 'G-18', 'demi-team')).toBe(false);
   });
 });

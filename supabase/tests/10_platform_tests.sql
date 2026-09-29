@@ -134,7 +134,12 @@ insert into teams (team_code, name, project_name, level_code, governorate_code) 
   ('T4', 'Team Four', 'Safe Home', 'L5', 'SUZ'),
   ('T5', 'Team Five', 'Robo Arm', 'L1', 'MNF'),
   ('T6', 'Team Six', 'Health Band', 'G5', 'CAI');
-select tests.throws($$insert into teams (team_code, name, project_name, level_code, governorate_code) values ('t1','dup','dup','G4','CAI')$$, 'duplicate key', 'team IDs are unique (case-insensitive)');
+insert into teams (team_code, name, project_name, level_code, governorate_code) values
+  ('ORG-DUP', 'DEMI duplicate scope', 'One', 'G4', 'CAI'),
+  ('org-dup', 'DECI duplicate scope', 'Two', 'L1', 'CAI');
+select tests.ok((select count(*) from teams where lower(team_code)='org-dup')=2, 'same Team ID is allowed once in DEMI and once in DECI');
+select tests.throws($$insert into teams (team_code, name, project_name, level_code, governorate_code) values ('Org-Dup','same org','Three','G5','CAI')$$, 'duplicate key', 'same Team ID is rejected across grades in one organization');
+delete from teams where lower(team_code)='org-dup';
 select tests.throws($$insert into team_judges (team_id, judge_id) select id, tests.uid('jp') from teams where team_code='T1'$$, 'Only approved', 'pending account cannot be assigned');
 
 select admin_set_team_judges((select id from teams where team_code='T1'), array[tests.uid('j1'), tests.uid('j2')]);
@@ -404,7 +409,26 @@ select tests.ok((select (r->>'ok')::boolean and (r->>'inserted')::int = 3 and (r
 select tests.ok((select project_name from teams where team_code='T5') = 'Robo Arm v2', 'import upserts by team ID');
 select tests.ok((select (r->>'ok')::boolean = false from admin_import_teams('[
   {"team_code":"D1","name":"a","project_name":"b","level_code":"G4","governorate":"CAI"},
-  {"team_code":"d1","name":"a","project_name":"b","level_code":"G4","governorate":"CAI"}]'::jsonb) r), 'duplicate IDs inside a file rejected');
+  {"team_code":"d1","name":"a","project_name":"b","level_code":"G5","governorate":"CAI"}]'::jsonb) r), 'duplicate IDs across grades in the same organization are rejected');
+select tests.ok((select (r->>'ok')::boolean and (r->>'inserted')::int=2 from admin_import_teams('[
+  {"team_code":"XORG","name":"DEMI XORG","project_name":"Separate DEMI","level_code":"G4","governorate":"CAI","judge_emails":["judge1@example.com"]},
+  {"team_code":"xorg","name":"DECI XORG","project_name":"Separate DECI","level_code":"L1","governorate":"ALX","judge_emails":["judge2@example.com"]}]'::jsonb) r), 'import allows the same Team ID in DEMI and DECI');
+select tests.ok((select count(distinct id)=2 and count(distinct organization)=2 from teams where lower(team_code)='xorg'), 'cross-organization imports have distinct internal team IDs');
+reset role;
+
+select tests.login('j1'); set role authenticated;
+insert into ids values ('xorg-demi', start_evaluation((select id from teams where lower(team_code)='xorg' and organization='DEMI')));
+select submit_evaluation((select v from ids where k='xorg-demi'), tests.payload('DEMI_G4', tests.arr(20,5,0), array[5,5]));
+reset role;
+
+select tests.login('j2'); set role authenticated;
+insert into ids values ('xorg-deci', start_evaluation((select id from teams where lower(team_code)='xorg' and organization='DECI')));
+select submit_evaluation((select v from ids where k='xorg-deci'), tests.payload('DECI_L1', tests.arr(10,3,10), array[1,1]));
+reset role;
+
+select tests.login('admin'); set role authenticated;
+select tests.ok((select count(distinct team_id)=2 from evaluations where id in ((select v from ids where k='xorg-demi'),(select v from ids where k='xorg-deci'))), 'overlapping Team IDs keep evaluations attached to separate team UUIDs');
+select tests.ok((select count(*)=2 and min(avg_core)=80 and max(avg_core)=100 from admin_team_results() where lower(team_code)='xorg'), 'overlapping Team IDs keep independent result calculations');
 reset role;
 
 -- -----------------------------------------------------------------------------

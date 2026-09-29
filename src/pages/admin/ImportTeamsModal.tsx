@@ -91,7 +91,7 @@ export default function ImportTeamsModal({ open, onClose, reference, judges, onI
           <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-slate-600">
             <li>Organization: DEMI or DECI. Grade or Level: Grade 4, Grade 5, Grade 6, Level 1, Level 2, Level 3, Level 4 or Level 5.</li>
             <li>Governorate: Alexandria, Cairo, Monufia, Assiut or Suez.</li>
-            <li>Judge Emails (optional): e-mails of approved judges separated by “;”. Existing Team IDs are updated.</li>
+            <li>Judge Emails (optional): e-mails of approved judges separated by “;”. Existing Team IDs are updated within the same organization.</li>
             <li>The import is all-or-nothing: if any row is invalid, nothing is written.</li>
           </ul>
           <Button size="sm" variant="secondary" className="mt-3" onClick={() => void downloadImportTemplate()}><FileSpreadsheet size={14} /> Download template</Button>

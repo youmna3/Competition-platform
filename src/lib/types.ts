@@ -111,6 +111,7 @@ export interface Team {
   team_code: string;
   name: string;
   project_name: string;
+  organization: Organization;
   level_code: string;
   governorate_code: string;
   template_id?: string;

@@ -1,4 +1,4 @@
-import type { Governorate, ImportRow, Level } from './types';
+import type { Governorate, ImportRow, Level, Organization, Team } from './types';
 
 export interface ParsedImportRow extends ImportRow {
   rowNumber: number; // 1-based data row number (header excluded)
@@ -25,6 +25,24 @@ interface RawRow {
 }
 
 export const TEMPLATE_HEADERS = ['Team ID', 'Team Name', 'Project Name', 'Organization', 'Grade or Level', 'Governorate', 'Judge Emails'];
+
+/** Team IDs are case-insensitively unique inside an organization, not globally. */
+export function teamIdentityKey(organization: string, teamCode: string): string {
+  return `${organization.trim().toUpperCase()}\u0000${teamCode.trim().toLowerCase()}`;
+}
+
+export function hasTeamIdConflict(
+  teams: Team[],
+  organization: Organization,
+  teamCode: string,
+  currentTeamId?: string,
+): boolean {
+  const candidate = teamIdentityKey(organization, teamCode);
+  return teams.some((team) =>
+    team.id !== currentTeamId
+    && teamIdentityKey(team.organization, team.team_code) === candidate,
+  );
+}
 
 export function normaliseHeader(h: string): keyof RawRow | null {
   const k = h.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -107,8 +125,8 @@ export function buildImportRows(
       if (!EMAIL_RE.test(e)) errors.push(`"${e}" is not a valid e-mail`);
       else if (!knownJudgeEmails.has(e)) errors.push(`Judge "${e}" has no approved account yet`);
     }
-    const key = raw.team_code.toLowerCase();
-    if (key) {
+    const key = teamIdentityKey(raw.organization, raw.team_code);
+    if (raw.team_code) {
       if (seen.has(key)) errors.push(`Duplicate Team ID (also on row ${seen.get(key)})`);
       else seen.set(key, i + 1);
     }
