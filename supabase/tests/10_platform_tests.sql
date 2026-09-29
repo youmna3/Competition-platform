@@ -200,6 +200,7 @@ delete from auth.users where id=tests.uid('jt');
 -- -----------------------------------------------------------------------------
 select tests.login('jp'); set role authenticated;
 select tests.ok((select count(*) from teams) = 0, 'pending user sees no teams');
+select tests.throws($$select * from get_leaderboard()$$, 'approved active account', 'pending user cannot read leaderboards');
 select tests.throws($$select start_evaluation((select id from teams limit 1))$$, 'not an approved judge|null value', 'pending user cannot start evaluations');
 reset role;
 
@@ -320,10 +321,14 @@ select tests.ok((select (s->>'completed_evaluations')::int = 6 and (s->>'pending
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 6. Publication control (anon & judges only see published boards)
+-- 6. Private publication control (anonymous callers see no platform data;
+-- approved judges see only published boards)
 -- -----------------------------------------------------------------------------
 select tests.logout(); set role anon;
-select tests.ok((select count(*) from get_leaderboard()) = 0, 'anon sees nothing before publication');
+select tests.throws($$select * from get_leaderboard()$$, 'permission denied', 'anon cannot call leaderboard RPC');
+select tests.throws($$select * from get_competitions()$$, 'permission denied', 'anon cannot call competition RPC');
+select tests.throws($$select * from governorates$$, 'permission denied', 'anon cannot read reference data');
+select tests.throws($$select * from results_signal$$, 'permission denied', 'anon cannot subscribe to result signals');
 select tests.throws($$select * from teams$$, 'permission denied', 'anon cannot read teams');
 select tests.throws($$select * from evaluations$$, 'permission denied', 'anon cannot read evaluations');
 select tests.throws($$select * from rubric_criteria$$, 'permission denied', 'anon cannot read rubric tables');
@@ -332,6 +337,7 @@ select tests.throws($$select admin_set_publication('DEMI_G4', true)$$, 'permissi
 reset role;
 
 select tests.login('j3'); set role authenticated;
+select tests.ok((select count(*) from get_leaderboard()) = 0, 'approved judge sees no unpublished boards');
 select tests.throws($$select admin_set_publication('DEMI_G4', true)$$, 'Administrator access required', 'judge cannot publish');
 select tests.throws($$select admin_reopen_evaluation((select v from ids where k='e1'), 'x')$$, 'Administrator access required', 'judge cannot reopen');
 select tests.throws($$select admin_team_results()$$, 'Administrator access required', 'judge cannot read all results');
@@ -344,7 +350,10 @@ reset role;
 select tests.ok((select version from results_signal where competition_code='DEMI_G4') > :v_before, 'publishing bumps the realtime signal');
 
 select tests.logout(); set role anon;
-select tests.ok((select string_agg(team_code, ',' order by team_code) from get_leaderboard()) = 'T1,T2', 'anon sees only the published DEMI Grade 4 board');
+select tests.throws($$select * from get_leaderboard()$$, 'permission denied', 'anon cannot see a published board');
+reset role;
+select tests.login('j3'); set role authenticated;
+select tests.ok((select string_agg(team_code, ',' order by team_code) from get_leaderboard()) = 'T1,T2', 'approved judge sees only the published DEMI Grade 4 board');
 reset role;
 
 -- -----------------------------------------------------------------------------
@@ -518,6 +527,7 @@ update profiles set status = 'disabled' where email = 'judge3@example.com';
 reset role;
 select tests.login('j3'); set role authenticated;
 select tests.ok((select count(*) from teams) = 0, 'disabled judge sees no teams');
+select tests.throws($$select * from get_leaderboard()$$, 'approved active account', 'disabled judge cannot read leaderboards');
 select tests.throws($$select start_evaluation((select id from public.teams where team_code='T6'))$$, 'not an approved judge|null value', 'disabled judge cannot evaluate');
 reset role;
 

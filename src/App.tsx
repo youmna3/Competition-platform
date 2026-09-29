@@ -54,7 +54,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/set-new-password" element={<SetNewPasswordPage />} />
       <Route path="/pending" element={<PendingPage />} />
-      <Route element={<Layout />}>
+      <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route path="/" element={<Home />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/judge" element={<RequireAuth><JudgeHome /></RequireAuth>} />

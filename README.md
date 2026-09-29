@@ -29,6 +29,7 @@ supabase/migrations/          SQL migrations — run in filename order
   ..0008_admin_user_invitations.sql admin invitations, acceptance and judge-centric assignments
   ..0009_temporary_password_accounts.sql mandatory password-change gate for admin-created accounts
   ..0010_secure_auth_provisioning.sql one-use authorization for Auth Admin user creation
+  20260929000001_make_platform_private.sql authenticated-only routes, reference data and leaderboards
 supabase/functions/           secure server-side administrator account endpoint
 supabase/tests/               SQL test-suite + a tiny Supabase stub for plain Postgres
 scripts/verify_rubrics.py     Checks rubrics.json against the PDF text (every word, weight, maximum)
@@ -104,7 +105,7 @@ To deploy from the CLI instead: `npm i -g vercel && vercel --prod`, after settin
 | Judge | **My evaluations** | Choose **DEMI** or **DECI**, then the grade/level, then an assigned team. Score each row 1–5 and add notes. Drafts save automatically. Submit when every core row is scored. |
 | Admin | **Evaluations** | Per-team progress. Open any judge's submission read-only, see its change history, and **reopen** it with a reason. |
 | Admin | **Rubric Management** | Browse version history, edit a new draft visually, validate, preview, and publish immutable rubric versions. |
-| Everyone | **Leaderboard** | DEMI and DECI tabs, grade/level and governorate filters, a trophy on the top team of each category, ties shown as `=1`. The public sees only boards an admin has **published**. |
+| Approved users | **Leaderboard** | DEMI and DECI tabs, grade/level and governorate filters, a trophy on the top team of each category, ties shown as `=1`. Judges see only boards an admin has **published**; administrators can preview unpublished boards. |
 | Admin | **Dashboard** | Totals, pending work, results by category and governorate, top teams, **Export all results** (.xlsx). |
 
 **Import columns:** `Team ID, Team Name, Project Name, Organization, Grade or Level, Governorate, Judge Emails`.

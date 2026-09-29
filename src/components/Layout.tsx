@@ -58,7 +58,7 @@ export default function Layout() {
     );
   }
   if (isApproved) items.push({ to: '/judge', label: 'My evaluations', icon: <ClipboardCheck size={16} /> });
-  items.push({ to: '/leaderboard', label: 'Leaderboard', icon: <Trophy size={16} /> });
+  if (isApproved) items.push({ to: '/leaderboard', label: 'Leaderboard', icon: <Trophy size={16} /> });
 
   return (
     <div className="min-h-screen bg-slate-50">

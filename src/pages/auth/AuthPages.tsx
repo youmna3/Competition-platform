@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Clock, ShieldX, Trophy } from 'lucide-react';
+import { Clock, ShieldX } from 'lucide-react';
 import { supabase, errorMessage } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, Button, Card, Field, Input } from '@/components/ui';
@@ -32,7 +32,7 @@ function BrandPanel() {
       <span className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full border-[14px] border-orange-500 lg:hidden" aria-hidden />
       <span className="pointer-events-none absolute right-6 top-6 h-4 w-4 rounded-full bg-amber-300 lg:hidden" aria-hidden />
       <div className="relative">
-        <Brand inverted to="/leaderboard" />
+        <Brand inverted to="/login" />
       </div>
       <div className="relative mt-8 max-w-md lg:mt-0">
         <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white">
@@ -57,11 +57,7 @@ function AuthShell({ title, subtitle, children, footer }: { title: string; subti
       <BrandPanel />
       <div className="flex flex-col">
         <div className="brand-stripe h-1 lg:hidden" aria-hidden />
-        <div className="flex justify-end px-4 py-4 sm:px-8">
-          <Link to="/leaderboard" className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50">
-            <Trophy size={16} /> Leaderboard
-          </Link>
-        </div>
+        <div className="h-16" aria-hidden />
         <div className="flex flex-1 items-center justify-center px-4 pb-16 sm:px-8">
           <div className="w-full max-w-md">
             <div className="mb-6">
