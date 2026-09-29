@@ -301,26 +301,42 @@ try {
 
   // ---------------------------------------------------------- responsive admin
   console.log('10. Responsive navigation and rubric management');
-  for (const width of [375, 768, 1024, 1280, 1920]) {
-    await a.p.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+  const navigationCases = [
+    ...[375, 768, 1024].map((width) => ({ physicalWidth: width, zoom: 1 })),
+    ...[1366, 1440, 1920].flatMap((physicalWidth) => [1, 1.1, 1.25].map((zoom) => ({ physicalWidth, zoom }))),
+  ];
+  for (const { physicalWidth, zoom } of navigationCases) {
+    const width = Math.floor(physicalWidth / zoom); // browser zoom reduces the CSS viewport
+    const label = `${physicalWidth}px at ${Math.round(zoom * 100)}% zoom`;
+    await a.p.setViewportSize({ width, height: physicalWidth === 375 ? 812 : 900 });
     await a.p.goto(`${BASE}/admin/rubrics`);
     await a.p.getByTestId('rubric-management').waitFor();
     const pageOverflow = await a.p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
-    ok(!pageOverflow, `${width}px rubric page has no horizontal document scroll`);
+    ok(!pageOverflow, `${label} has no horizontal document scroll`);
     const topBar = await a.p.locator('header > div').nth(1).boundingBox();
-    ok(Math.round(topBar?.height || 0) === 64, `${width}px header bar stays 64px high`);
-    if (width < 1600) {
-      const menu = a.p.getByRole('button', { name: 'Open menu' });
-      ok(await menu.isVisible(), `${width}px uses the hamburger navigation`);
+    ok(Math.round(topBar?.height || 0) === 64, `${label} header bar stays 64px high`);
+    const menu = a.p.getByRole('button', { name: 'Open menu' });
+    const compact = await menu.isVisible();
+    const primary = a.p.getByRole('navigation', { name: 'Primary navigation' });
+    ok(compact !== await primary.isVisible(), `${label} exposes exactly one navigation mode`);
+    if (compact) {
       await menu.click();
-      ok(await a.p.getByRole('navigation', { name: 'Responsive navigation' }).isVisible(), `${width}px menu opens`);
+      const responsive = a.p.getByRole('navigation', { name: 'Responsive navigation' });
+      ok(await responsive.isVisible(), `${label} menu opens`);
+      for (const item of ['Dashboard','Teams','Judges','Evaluations','Rubric Management','Audit log','My evaluations','Leaderboard']) {
+        ok(await responsive.getByRole('link', { name: item, exact: true }).isVisible(), `${label} menu includes ${item}`);
+      }
+      ok((await responsive.getByRole('link', { name: 'Rubric Management', exact: true }).getAttribute('class'))?.includes('bg-brand-50'), `${label} highlights the active page`);
       await a.p.getByRole('button', { name: 'Close menu' }).click();
-      ok(!(await a.p.getByRole('navigation', { name: 'Responsive navigation' }).isVisible()), `${width}px menu closes`);
+      ok(!(await responsive.isVisible()), `${label} menu closes`);
     } else {
-      ok(await a.p.getByRole('navigation', { name: 'Primary navigation' }).isVisible(), `${width}px uses full navigation`);
-      ok(!(await a.p.getByRole('button', { name: 'Open menu' }).isVisible()), `${width}px hides the hamburger`);
+      ok((await primary.getByRole('link', { name: 'Rubric Management', exact: true }).getAttribute('class'))?.includes('bg-brand-600'), `${label} highlights the active tab`);
+      const [brandBox, navBox, accountBox] = await Promise.all([
+        a.p.getByTestId('header-brand').boundingBox(), primary.boundingBox(), a.p.getByTestId('header-account').boundingBox(),
+      ]);
+      ok(Boolean(brandBox && navBox && accountBox && brandBox.x + brandBox.width <= navBox.x && navBox.x + navBox.width <= accountBox.x), `${label} header groups do not overlap`);
     }
-    await a.p.screenshot({ path: `${SHOTS}/responsive-rubrics-${width}.png`, fullPage: true });
+    await a.p.screenshot({ path: `${SHOTS}/responsive-rubrics-${physicalWidth}-${Math.round(zoom * 100)}.png`, fullPage: true });
   }
 
   // ---------------------------------------------------------------- mobile

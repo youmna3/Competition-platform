@@ -1,10 +1,16 @@
 import clsx from 'clsx';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { BarChart3, BookOpen, ClipboardCheck, History, LayoutDashboard, LogIn, LogOut, Menu, Trophy, Users, UsersRound, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 interface NavItem { to: string; label: string; icon: ReactNode; end?: boolean }
+
+const NAVIGATION_SAFETY_SPACE = 80;
+
+export function navigationNeedsMenu(containerWidth: number, brandWidth: number, navigationWidth: number, accountWidth: number) {
+  return brandWidth + navigationWidth + accountWidth + NAVIGATION_SAFETY_SPACE > containerWidth;
+}
 
 /** iSchool primary logo + product name. `inverted` = white logo for blue backgrounds. */
 export function Brand({ inverted = false, to = '/' }: { inverted?: boolean; to?: string }) {
@@ -17,8 +23,8 @@ export function Brand({ inverted = false, to = '/' }: { inverted?: boolean; to?:
         width={inverted ? 108 : 125}
         height={36}
       />
-      <span className={clsx('hidden h-8 w-px sm:block', !inverted && 'xl:hidden 2xl:block', inverted ? 'bg-white/30' : 'bg-slate-200')} aria-hidden />
-      <span className={clsx('hidden leading-tight sm:block', !inverted && 'xl:hidden 2xl:block')}>
+      <span className={clsx('hidden h-8 w-px sm:block', inverted ? 'bg-white/30' : 'bg-slate-200')} aria-hidden />
+      <span className="hidden leading-tight sm:block">
         <span className={clsx('block text-sm font-semibold', inverted ? 'text-white' : 'text-slate-900')}>DEMI · DECI</span>
         <span className={clsx('block text-[11px] font-medium', inverted ? 'text-white/75' : 'text-slate-500')}>Judging Platform</span>
       </span>
@@ -29,6 +35,11 @@ export function Brand({ inverted = false, to = '/' }: { inverted?: boolean; to?:
 export default function Layout() {
   const { profile, isAdmin, isApproved, signOut, session } = useAuth();
   const [open, setOpen] = useState(false);
+  const [compactNavigation, setCompactNavigation] = useState(true);
+  const headerRowRef = useRef<HTMLDivElement>(null);
+  const brandRef = useRef<HTMLDivElement>(null);
+  const navigationMeasureRef = useRef<HTMLElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,14 +47,8 @@ export default function Layout() {
   useEffect(() => {
     if (!open) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
-    const desktop = window.matchMedia('(min-width: 1600px)');
-    const closeOnDesktop = (event: MediaQueryListEvent) => { if (event.matches) setOpen(false); };
     window.addEventListener('keydown', closeOnEscape);
-    desktop.addEventListener('change', closeOnDesktop);
-    return () => {
-      window.removeEventListener('keydown', closeOnEscape);
-      desktop.removeEventListener('change', closeOnDesktop);
-    };
+    return () => window.removeEventListener('keydown', closeOnEscape);
   }, [open]);
 
   const items: NavItem[] = [];
@@ -59,14 +64,44 @@ export default function Layout() {
   }
   if (isApproved) items.push({ to: '/judge', label: 'My evaluations', icon: <ClipboardCheck size={16} /> });
   if (isApproved) items.push({ to: '/leaderboard', label: 'Leaderboard', icon: <Trophy size={16} /> });
+  const itemSignature = items.map((item) => item.to).join('|');
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const row = headerRowRef.current;
+      const brand = brandRef.current;
+      const navigation = navigationMeasureRef.current;
+      const account = accountRef.current;
+      if (!row || !brand || !navigation || !account) return;
+      setCompactNavigation(navigationNeedsMenu(row.clientWidth, brand.offsetWidth, navigation.scrollWidth, account.offsetWidth));
+    };
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    [headerRowRef.current, brandRef.current, navigationMeasureRef.current, accountRef.current].forEach((element) => {
+      if (element) observer?.observe(element);
+    });
+    window.addEventListener('resize', measure);
+    document.fonts?.ready.then(measure).catch(() => undefined);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [itemSignature, profile?.full_name, profile?.email]);
+
+  useEffect(() => {
+    if (!compactNavigation) setOpen(false);
+  }, [compactNavigation]);
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="brand-stripe h-1" aria-hidden />
-        <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-3 px-4 sm:px-6">
-          <Brand />
-          <nav className="hidden min-w-0 items-center gap-1 min-[1600px]:flex" aria-label="Primary navigation">
+        <div ref={headerRowRef} data-testid="header-row" className="relative mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-3 px-4 sm:px-6">
+          <div ref={brandRef} data-testid="header-brand" className="shrink-0"><Brand /></div>
+          <nav ref={navigationMeasureRef} className="pointer-events-none invisible fixed -left-[10000px] top-0 flex w-max items-center gap-1 whitespace-nowrap" aria-hidden="true">
+            {items.map((item) => <span key={item.to} className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium">{item.icon}{item.label}</span>)}
+          </nav>
+          {!compactNavigation && <nav className="flex min-w-0 items-center gap-1 whitespace-nowrap" aria-label="Primary navigation">
             {items.map((i) => (
               <NavLink
                 key={i.to}
@@ -83,9 +118,9 @@ export default function Layout() {
                 {i.label}
               </NavLink>
             ))}
-          </nav>
+          </nav>}
           <div className="flex min-w-0 shrink-0 items-center gap-2">
-            {session ? (
+            <div ref={accountRef} data-testid="header-account" className="flex min-w-0 shrink-0 items-center gap-2">{session ? (
               <>
                 <div className="hidden text-right sm:block">
                   <p className="max-w-[180px] truncate text-sm font-medium text-slate-900">{profile?.full_name || profile?.email}</p>
@@ -110,20 +145,20 @@ export default function Layout() {
               <Link to="/login" className="hidden items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50 sm:flex">
                 <LogIn size={16} /> Sign in
               </Link>
-            )}
-            <button
-              className="rounded-full p-2 text-slate-600 hover:bg-slate-100 min-[1600px]:hidden"
+            )}</div>
+            {compactNavigation && <button
+              className="rounded-full p-2 text-slate-600 hover:bg-slate-100"
               onClick={() => setOpen((o) => !o)}
               aria-label={open ? 'Close menu' : 'Open menu'}
               aria-expanded={open}
               aria-controls="responsive-navigation"
             >
               {open ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            </button>}
           </div>
         </div>
-        {open && (
-          <div id="responsive-navigation" className="max-h-[calc(100vh-4.25rem)] overflow-y-auto border-t border-slate-200 bg-white px-4 py-3 min-[1600px]:hidden">
+        {open && compactNavigation && (
+          <div id="responsive-navigation" className="max-h-[calc(100vh-4.25rem)] overflow-y-auto border-t border-slate-200 bg-white px-4 py-3 shadow-lg">
             <nav className="mx-auto grid max-w-7xl gap-1" aria-label="Responsive navigation">
               {session && (
                 <div className="mb-2 min-w-0 rounded-xl bg-slate-50 px-3 py-2 sm:hidden">
