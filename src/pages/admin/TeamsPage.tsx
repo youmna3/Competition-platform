@@ -310,7 +310,7 @@ export default function TeamsPage() {
                   <option value="">Select…</option><option>DEMI</option><option>DECI</option>
                 </Select>
               </Field>
-              <Field label="Grade or level" required hint={draft.level_code === 'L4' || draft.level_code === 'L5' ? 'Uses the shared DECI Levels 4 & 5 rubric; actual level is kept for filtering' : undefined}>
+              <Field label="Grade or level" required hint={draft.level_code === 'L45' ? 'Combined DECI Levels 4 & 5 category' : undefined}>
                 <Select value={draft.level_code} disabled={!draft.organization} onChange={(e) => setDraft({ ...draft, level_code: e.target.value })}>
                   <option value="">Select…</option>
                   {ref.levels.filter((l) => l.organization === draft.organization).map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}

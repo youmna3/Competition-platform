@@ -4,8 +4,8 @@ import type { Governorate, Level, Team } from './types';
 
 const levels: Level[] = [
   ['G4', 'DEMI', 'Grade 4', 'DEMI_G4'], ['G5', 'DEMI', 'Grade 5', 'DEMI_G5'], ['G6', 'DEMI', 'Grade 6', 'DEMI_G6'], ['L1', 'DECI', 'Level 1', 'DECI_L1'],
-  ['L2', 'DECI', 'Level 2', 'DECI_L2'], ['L3', 'DECI', 'Level 3', 'DECI_L3'], ['L4', 'DECI', 'Level 4', 'DECI_L45'], ['L5', 'DECI', 'Level 5', 'DECI_L45'],
-].map(([code, organization, label, competition_code], i) => ({ code, organization, label, competition_code, sort_order: i } as Level));
+  ['L2', 'DECI', 'Level 2', 'DECI_L2'], ['L3', 'DECI', 'Level 3', 'DECI_L3'], ['L45', 'DECI', 'Levels 4 & 5', 'DECI_L45'],
+].map(([code, organization, label, competition_code], i) => ({ code, organization, label, competition_code, sort_order: i, is_active: true } as Level));
 const govs: Governorate[] = [['ALX', 'Alexandria'], ['CAI', 'Cairo'], ['MNF', 'Monufia'], ['AST', 'Assiut'], ['SUZ', 'Suez']].map(([code, name], i) => ({ code, name, sort_order: i }));
 
 describe('resolveLevel', () => {
@@ -14,12 +14,13 @@ describe('resolveLevel', () => {
     expect(resolveLevel('demi', '5', levels).code).toBe('G5');
     expect(resolveLevel('DEMI', 'Grade 6', levels).code).toBe('G6');
     expect(resolveLevel('DECI', 'Level 3', levels).code).toBe('L3');
-    expect(resolveLevel('DECI', 'L5', levels).code).toBe('L5');
+    expect(resolveLevel('DECI', 'L5', levels).code).toBe('L45');
+    expect(resolveLevel('DECI', 'Level 4', levels).code).toBe('L45');
+    expect(resolveLevel('DECI', 'Levels 4 & 5', levels).code).toBe('L45');
   });
-  it('rejects cross-organization and combined values', () => {
+  it('rejects cross-organization and unknown organization values', () => {
     expect(resolveLevel('DEMI', 'Level 1', levels).code).toBeNull();
     expect(resolveLevel('DECI', 'Grade 4', levels).code).toBeNull();
-    expect(resolveLevel('DECI', 'Levels 4 & 5', levels).error).toMatch(/actual level/);
     expect(resolveLevel('XYZ', 'Grade 4', levels).code).toBeNull();
   });
 });

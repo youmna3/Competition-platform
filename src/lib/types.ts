@@ -54,6 +54,8 @@ export interface Level {
   label: string;
   competition_code: string;
   sort_order: number;
+  /** Added by the combined-level migration; absent only during a rolling deployment. */
+  is_active?: boolean;
 }
 
 export interface ScoreLevel {
@@ -115,6 +117,7 @@ export interface Team {
   level_code: string;
   governorate_code: string;
   template_id?: string;
+  legacy_level_code?: string | null;
   created_at: string;
   updated_at: string;
 }

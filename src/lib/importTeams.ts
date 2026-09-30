@@ -49,20 +49,24 @@ export function normaliseHeader(h: string): keyof RawRow | null {
   return HEADER_ALIASES[k] ?? HEADER_ALIASES[k.replace(/ /g, '_')] ?? null;
 }
 
-/** Map organization + free-text grade/level to a level code (G4..G6, L1..L5). */
+/** Map organization + free-text grade/level to an active level code. */
 export function resolveLevel(organization: string, gradeLevel: string, levels: Level[]): { code: string | null; error?: string } {
   const org = organization.trim().toUpperCase();
   const gl = gradeLevel.trim();
   if (org !== 'DEMI' && org !== 'DECI') return { code: null, error: `Organization must be DEMI or DECI (got "${organization}")` };
   if (!gl) return { code: null, error: 'Grade or level is required' };
-  if (/4\s*(&|and|\/|-)\s*5/i.test(gl)) {
-    return { code: null, error: 'Enter the team\'s actual level ("Level 4" or "Level 5"); both use the shared Levels 4 & 5 rubric' };
+  const combined = levels.find((level) => level.organization === 'DECI' && level.code === 'L45');
+  if (org === 'DECI' && /4\s*(&|and|\/|-)\s*5/i.test(gl)) {
+    return combined ? { code: combined.code } : { code: null, error: 'DECI Levels 4 & 5 is unavailable' };
   }
   if ((org === 'DECI' && /grade/i.test(gl)) || (org === 'DEMI' && /level/i.test(gl))) {
     const allowed = levels.filter((l) => l.organization === org).map((l) => l.label).join(', ');
     return { code: null, error: `"${gradeLevel}" is not a valid ${org} grade/level (allowed: ${allowed})` };
   }
   const digit = gl.match(/(\d)/)?.[1];
+  if (org === 'DECI' && (digit === '4' || digit === '5')) {
+    return combined ? { code: combined.code } : { code: null, error: 'DECI Levels 4 & 5 is unavailable' };
+  }
   const direct = levels.find((l) => l.code.toUpperCase() === gl.toUpperCase() || l.label.toLowerCase() === gl.toLowerCase());
   const byDigit = digit ? levels.find((l) => l.organization === org && l.code.endsWith(digit)) : undefined;
   const lvl = direct && direct.organization === org ? direct : byDigit;

@@ -6,6 +6,7 @@ import {
 } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import { computeTotals, type ScoreMap } from '@/lib/scoring';
+import { clearRecoverableDraft, loadRecoverableDraft, storeRecoverableDraft } from '@/lib/draftRecovery';
 import type { Evaluation, RubricTemplate, ScoreChange, ScoreLevel, Team } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import RubricForm from '@/components/RubricForm';
@@ -49,6 +50,7 @@ export default function EvaluationPage() {
   const inFlight = useRef<Promise<void> | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recoveredPending = useRef(false);
   const evalId = evaluation?.id;
   const locked = evaluation?.status === 'submitted';
 
@@ -79,12 +81,26 @@ export default function EvaluationPage() {
           s[row.criterion_id] = row.score;
           n[row.criterion_id] = row.note ?? '';
         });
+        const recovered = ev.evaluation.status === 'submitted' ? null : loadRecoverableDraft(id);
+        recovered?.scores.forEach((row) => {
+          s[row.criterion_id] = row.score;
+          n[row.criterion_id] = row.note ?? '';
+          pending.current.scores.set(row.criterion_id, row);
+        });
         scoresRef.current = s;
         notesRef.current = n;
         setScores(s);
         setNotes(n);
-        setSectionNotes(ev.evaluation.section_notes ?? {});
-        setOverall(ev.evaluation.overall_notes ?? '');
+        const recoveredSections = recovered?.sections ?? {};
+        pending.current.sections = recoveredSections;
+        pending.current.overall = recovered?.overall ?? null;
+        setSectionNotes({ ...(ev.evaluation.section_notes ?? {}), ...recoveredSections });
+        setOverall(recovered?.overall ?? ev.evaluation.overall_notes ?? '');
+        if (recovered) {
+          recoveredPending.current = true;
+          setSaveState('pending');
+        }
+        else if (ev.evaluation.status === 'submitted') clearRecoverableDraft(id);
       } catch (e) {
         if (!cancelled) setLoadError(errorMessage(e));
       }
@@ -116,12 +132,14 @@ export default function EvaluationPage() {
         setLastSaved(new Date());
         setSaveError(null);
         setSaveState(isEmpty(pending.current) ? 'saved' : 'pending');
+        storeRecoverableDraft(evalId, pending.current);
       } catch (e) {
         // put the batch back underneath any newer edits, then retry
         const cur = pending.current;
         batch.scores.forEach((v, k) => { if (!cur.scores.has(k)) cur.scores.set(k, v); });
         for (const [k, v] of Object.entries(batch.sections)) if (!(k in cur.sections)) cur.sections[k] = v;
         if (cur.overall === null) cur.overall = batch.overall;
+        storeRecoverableDraft(evalId, cur);
         const msg = errorMessage(e);
         setSaveError(msg);
         setSaveState('error');
@@ -144,6 +162,13 @@ export default function EvaluationPage() {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), delay);
   }, [flush]);
+
+  useEffect(() => {
+    if (evalId && recoveredPending.current && !isEmpty(pending.current)) {
+      recoveredPending.current = false;
+      schedule(50);
+    }
+  }, [evalId, saveState, schedule]);
 
   // flush when leaving / hiding the tab; warn about unsaved edits
   useEffect(() => {
@@ -171,27 +196,31 @@ export default function EvaluationPage() {
     scoresRef.current = { ...scoresRef.current, [id]: v };
     setScores(scoresRef.current);
     pending.current.scores.set(id, { criterion_id: id, score: v, note: notesRef.current[id] ?? '' });
+    if (evalId) storeRecoverableDraft(evalId, pending.current);
     schedule(250);
-  }, [schedule]);
+  }, [evalId, schedule]);
 
   const onNote = useCallback((id: string, v: string) => {
     notesRef.current = { ...notesRef.current, [id]: v };
     setNotes(notesRef.current);
     pending.current.scores.set(id, { criterion_id: id, score: (scoresRef.current[id] ?? null) as number | null, note: v });
+    if (evalId) storeRecoverableDraft(evalId, pending.current);
     schedule(1000);
-  }, [schedule]);
+  }, [evalId, schedule]);
 
   const onSectionNote = useCallback((id: string, v: string) => {
     setSectionNotes((n) => ({ ...n, [id]: v }));
     pending.current.sections[id] = v;
+    if (evalId) storeRecoverableDraft(evalId, pending.current);
     schedule(1000);
-  }, [schedule]);
+  }, [evalId, schedule]);
 
   const onOverallNote = useCallback((v: string) => {
     setOverall(v);
     pending.current.overall = v;
+    if (evalId) storeRecoverableDraft(evalId, pending.current);
     schedule(1000);
-  }, [schedule]);
+  }, [evalId, schedule]);
 
   const totals = useMemo(() => (template ? computeTotals(template, scores) : null), [template, scores]);
 
@@ -214,6 +243,7 @@ export default function EvaluationPage() {
         .map((c) => ({ criterion_id: c.id, score: (scores[c.id] ?? null) as number | null, note: notes[c.id] ?? '' }));
       const row = await submitEvaluation(evaluation.id, all, sectionNotes, overall);
       pending.current = emptyPending();
+      clearRecoverableDraft(evaluation.id);
       setEvaluation(row);
       setSaveState('saved');
       setConfirmOpen(false);

@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { BarChart3, BookOpen, ClipboardCheck, History, LayoutDashboard, LogIn, LogOut, Menu, Trophy, Users, UsersRound, X } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, ClipboardCheck, History, LayoutDashboard, ListChecks, LogIn, LogOut, Menu, Trophy, Users, UsersRound, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 interface NavItem { to: string; label: string; icon: ReactNode; end?: boolean }
@@ -57,13 +57,16 @@ export default function Layout() {
       { to: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={16} />, end: true },
       { to: '/admin/teams', label: 'Teams', icon: <UsersRound size={16} /> },
       { to: '/admin/judges', label: 'Judges', icon: <Users size={16} /> },
+      { to: '/admin/judge-progress', label: 'Judge Progress', icon: <Activity size={16} /> },
       { to: '/admin/results', label: 'Evaluations', icon: <BarChart3 size={16} /> },
       { to: '/admin/rubrics', label: 'Rubric Management', icon: <BookOpen size={16} /> },
       { to: '/admin/audit', label: 'Audit log', icon: <History size={16} /> },
     );
   }
-  if (isApproved) items.push({ to: '/judge', label: 'My evaluations', icon: <ClipboardCheck size={16} /> });
-  if (isApproved) items.push({ to: '/leaderboard', label: 'Leaderboard', icon: <Trophy size={16} /> });
+  if (isApproved) items.push({ to: '/judge', label: 'My evaluations', icon: <ClipboardCheck size={16} />, end: true });
+  if (isApproved && !isAdmin) items.push({ to: '/judge/assigned-teams', label: 'Assigned Teams', icon: <ListChecks size={16} /> });
+  if (isApproved && !isAdmin) items.push({ to: '/judge/rubrics', label: 'Rubrics', icon: <BookOpen size={16} /> });
+  if (isAdmin) items.push({ to: '/leaderboard', label: 'Leaderboard', icon: <Trophy size={16} /> });
   const itemSignature = items.map((item) => item.to).join('|');
 
   useLayoutEffect(() => {

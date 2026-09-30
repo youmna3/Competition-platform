@@ -94,7 +94,9 @@ select tests.ok((select string_agg(weight::text, ',' order by position) from rub
 select tests.ok((select string_agg(weight::text, ',' order by position) from rubric_sections where template_id='DECI_L45' and not is_bonus) = '10,25,20,15,15,15', 'L4&5 weights');
 select tests.ok((select count(*) from governorates) = 5, 'five governorates');
 select tests.ok((select competition_code from levels where code = 'G6') = 'DEMI_G6', 'Grade 6 has a separate DEMI competition and leaderboard');
-select tests.ok((select string_agg(template_id, ',' order by l.code) from levels l join competitions c on c.code = l.competition_code where l.code in ('L4','L5')) = 'DECI_L45,DECI_L45', 'L4 and L5 share the combined rubric');
+select tests.ok((select count(*) from levels where organization='DECI' and is_active and competition_code='DECI_L45' and code='L45' and label='Levels 4 & 5') = 1, 'one active combined Levels 4 & 5 option');
+select tests.ok((select count(*) from levels where code in ('L4','L5') and not is_active) = 2, 'legacy L4 and L5 reference rows are retained but hidden');
+select tests.ok((select count(*) from rubric_templates where family_id='DECI_L45') = 1, 'combined category does not duplicate its rubric');
 
 -- -----------------------------------------------------------------------------
 -- 1. Sign-up creates pending judges; bootstrap admin
@@ -130,8 +132,8 @@ select tests.throws($$update profiles set role = 'judge' where id = auth.uid()$$
 insert into teams (team_code, name, project_name, level_code, governorate_code) values
   ('T1', 'Team One', 'Water Saver', 'G4', 'CAI'),
   ('T2', 'Team Two', 'Smart Bin', 'G4', 'ALX'),
-  ('T3', 'Team Three', 'Crop Watch', 'L4', 'AST'),
-  ('T4', 'Team Four', 'Safe Home', 'L5', 'SUZ'),
+  ('T3', 'Team Three', 'Crop Watch', 'L45', 'AST'),
+  ('T4', 'Team Four', 'Safe Home', 'L45', 'SUZ'),
   ('T5', 'Team Five', 'Robo Arm', 'L1', 'MNF'),
   ('T6', 'Team Six', 'Health Band', 'G5', 'CAI');
 insert into teams (team_code, name, project_name, level_code, governorate_code) values
@@ -269,7 +271,7 @@ select tests.throws($$select save_evaluation((select v from ids where k='e1'), '
 select tests.throws($$select submit_evaluation((select v from ids where k='e1'))$$, 'Evaluation not found', 'judge 2 cannot submit judge 1 evaluation');
 
 -- pending: T1 has 2 required judges, only 1 submitted
-select tests.ok(not exists (select 1 from get_leaderboard() where team_code = 'T1'), 'pending team hidden from judges');
+select tests.throws($$select * from get_leaderboard()$$, 'Administrator access required', 'judge cannot call leaderboard RPC');
 reset role;
 
 select tests.login('admin'); set role authenticated;
@@ -314,15 +316,15 @@ select tests.ok((select judges_submitted from get_leaderboard() where team_code=
 select tests.ok((select string_agg(team_code || ':' || rank || ':' || is_tied, ',' order by team_code) from get_leaderboard(p_competition := 'DEMI_G4')) = 'T1:1:true,T2:1:true', 'equal averages share rank 1, no tie-break invented');
 select tests.ok((select avg_core from get_leaderboard() where team_code='T3') = 88.00, 'T3 average (96+80)/2 = 88');
 select tests.ok((select avg_bonus from get_leaderboard() where team_code='T3') = 8.00, 'T3 bonus (15+1)/2 = 8');
-select tests.ok((select string_agg(team_code || ':' || level_code || ':' || rank, ',' order by rank) from get_leaderboard(p_competition := 'DECI_L45')) = 'T4:L5:1,T3:L4:2', 'L4 & L5 ranked together in combined category, keeping actual level');
-select tests.ok((select string_agg(team_code, ',') from get_leaderboard(p_level := 'L4')) = 'T3', 'level filter L4 only');
-select tests.ok((select rank from get_leaderboard(p_level := 'L4') where team_code='T3') = 1, 'rank recomputed within filtered view');
+select tests.ok((select string_agg(team_code || ':' || level_code || ':' || rank, ',' order by rank) from get_leaderboard(p_competition := 'DECI_L45')) = 'T4:L45:1,T3:L45:2', 'Levels 4 & 5 share one combined category and level code');
+select tests.ok((select string_agg(team_code, ',' order by team_code) from get_leaderboard(p_level := 'L45')) = 'T3,T4', 'combined level filter includes all Levels 4 & 5 teams');
 select tests.ok(not exists (select 1 from get_leaderboard(p_organization := 'DEMI') where organization <> 'DEMI'), 'DEMI filter returns only DEMI');
 select tests.ok(not exists (select 1 from get_leaderboard(p_organization := 'DECI') where organization <> 'DECI'), 'DECI filter returns only DECI');
 select tests.ok((select count(distinct competition_code) from get_leaderboard() where is_top) = 2, 'a top team is flagged per competition (DEMI_G4, DECI_L45)');
 select tests.ok((select string_agg(team_code, ',') from get_leaderboard(p_governorate := 'CAI')) = 'T1', 'governorate filter');
 select tests.ok(not exists (select 1 from get_leaderboard() where team_code in ('T5','T6')), 'teams without submissions not listed');
 select tests.ok((select (s->>'completed_evaluations')::int = 6 and (s->>'pending_evaluations')::int = 2 and (s->>'total_teams')::int = 6 and (s->>'total_judges')::int = 3 from admin_dashboard_stats() s), 'dashboard counts');
+select tests.ok((select not ((s->'by_level') @> '[{"code":"L4"}]'::jsonb) and not ((s->'by_level') @> '[{"code":"L5"}]'::jsonb) and ((s->'by_level') @> '[{"code":"L45","label":"Levels 4 & 5"}]'::jsonb) from admin_dashboard_stats() s), 'dashboard exposes only the combined Levels 4 & 5 category');
 reset role;
 
 -- -----------------------------------------------------------------------------
@@ -342,7 +344,7 @@ select tests.throws($$select admin_set_publication('DEMI_G4', true)$$, 'permissi
 reset role;
 
 select tests.login('j3'); set role authenticated;
-select tests.ok((select count(*) from get_leaderboard()) = 0, 'approved judge sees no unpublished boards');
+select tests.throws($$select * from get_leaderboard()$$, 'Administrator access required', 'approved judge cannot read unpublished boards');
 select tests.throws($$select admin_set_publication('DEMI_G4', true)$$, 'Administrator access required', 'judge cannot publish');
 select tests.throws($$select admin_reopen_evaluation((select v from ids where k='e1'), 'x')$$, 'Administrator access required', 'judge cannot reopen');
 select tests.throws($$select admin_team_results()$$, 'Administrator access required', 'judge cannot read all results');
@@ -358,7 +360,7 @@ select tests.logout(); set role anon;
 select tests.throws($$select * from get_leaderboard()$$, 'permission denied', 'anon cannot see a published board');
 reset role;
 select tests.login('j3'); set role authenticated;
-select tests.ok((select string_agg(team_code, ',' order by team_code) from get_leaderboard()) = 'T1,T2', 'approved judge sees only the published DEMI Grade 4 board');
+select tests.throws($$select * from get_leaderboard()$$, 'Administrator access required', 'approved judge cannot read a published board');
 reset role;
 
 -- -----------------------------------------------------------------------------
@@ -385,11 +387,10 @@ select tests.ok((select judges_required from admin_team_results() where team_cod
 select admin_set_team_judges((select id from teams where team_code='T1'), array[tests.uid('j1'), tests.uid('j2')]);
 select tests.ok(exists (select 1 from get_leaderboard() where team_code='T1'), 'removing the extra judge restores T1');
 
--- rubric change blocked once evaluated; L4 <-> L5 allowed (same rubric)
+-- rubric change blocked once evaluated; the combined category stays pinned
 select tests.throws($$update teams set level_code = 'G5' where team_code = 'T1'$$, 'cannot move to a different rubric', 'cannot move evaluated team to another rubric');
-update teams set level_code = 'L5' where team_code = 'T3';
-select tests.ok((select level_code from get_leaderboard() where team_code='T3') = 'L5', 'L4 -> L5 allowed: same shared rubric');
-update teams set level_code = 'L4' where team_code = 'T3';
+select tests.throws($$update teams set level_code = 'L4' where team_code = 'T3'$$, 'not available', 'inactive legacy L4 cannot be selected');
+select tests.ok((select level_code from get_leaderboard() where team_code='T3') = 'L45', 'evaluated team remains in combined category');
 select tests.throws($$delete from teams where team_code = 'T1'$$, 'foreign key|violates', 'evaluated team cannot be deleted accidentally');
 
 -- -----------------------------------------------------------------------------
@@ -402,7 +403,7 @@ select tests.ok((select (r->>'ok')::boolean = false and jsonb_array_length(r->'e
 select tests.ok(not exists (select 1 from teams where team_code = 'N1'), 'invalid import writes nothing (atomic)');
 select tests.ok((select (r->>'ok')::boolean and (r->>'inserted')::int = 3 and (r->>'updated')::int = 1 and (r->>'assignments_added')::int = 5 from admin_import_teams('[
   {"team_code":"N1","name":"New One","project_name":"P1","level_code":"G4","governorate":"cairo","judge_emails":["JUDGE1@example.com","judge2@example.com"]},
-  {"team_code":"N2","name":"New Two","project_name":"P2","level_code":"L5","governorate":"SUZ","judge_emails":["judge3@example.com"]},
+  {"team_code":"N2","name":"New Two","project_name":"P2","level_code":"L45","governorate":"SUZ","judge_emails":["judge3@example.com"]},
   {"team_code":"N3","name":"Grade Six Team","project_name":"Rescue Robot","level_code":"G6","governorate":"CAI","judge_emails":["judge1@example.com","judge2@example.com"]},
   {"team_code":"T5","name":"Team Five","project_name":"Robo Arm v2","level_code":"L1","governorate":"MNF","judge_emails":[]}
 ]'::jsonb) r), 'valid import inserts/updates teams and assigns judges');
@@ -458,6 +459,9 @@ reset role;
 -- 10. Rubric draft/version management
 -- -----------------------------------------------------------------------------
 select tests.login('j1'); set role authenticated;
+select tests.ok((select count(*) from rubric_templates) = 7, 'judge can read all seven active competition rubrics');
+select tests.ok(exists (select 1 from rubric_templates where id='DECI_L45'), 'judge can read the rubric pinned to an assigned team');
+select tests.ok(exists (select 1 from rubric_templates where id='DECI_L1'), 'judge can read an unassigned active rubric');
 select tests.throws($$select admin_create_rubric_draft('DEMI_G4')$$, 'Administrator access required', 'judge cannot create rubric drafts');
 select tests.throws($$update rubric_templates set title='tampered' where id='DEMI_G4'$$, 'permission denied|row-level security', 'judge cannot edit rubric tables');
 reset role;
@@ -468,6 +472,12 @@ insert into rubric_ids values ('draft', admin_create_rubric_draft('DEMI_G4'));
 select tests.ok((select lifecycle='draft' and version=2 and based_on_id='DEMI_G4' from rubric_templates where id=(select v from rubric_ids where k='draft')), 'published rubric cloned to version 2 draft');
 select tests.ok((select count(*) from rubric_criteria where template_id=(select v from rubric_ids where k='draft'))=22, 'draft clone contains every core and bonus criterion');
 select tests.throws($$update rubric_templates set title='overwrite' where id='DEMI_G4'$$, 'permission denied', 'published rubric cannot be overwritten directly');
+
+reset role;
+select tests.login('j1'); set role authenticated;
+select tests.ok(not exists (select 1 from rubric_templates where id=(select v from rubric_ids where k='draft')), 'judge cannot read an unpublished rubric draft');
+reset role;
+select tests.login('admin'); set role authenticated;
 
 select admin_save_rubric_draft((select v from rubric_ids where k='draft'),
   jsonb_set(tests.rubric_payload((select v from rubric_ids where k='draft')), '{title}', '"Grade 4 revised"'));
@@ -551,7 +561,7 @@ update profiles set status = 'disabled' where email = 'judge3@example.com';
 reset role;
 select tests.login('j3'); set role authenticated;
 select tests.ok((select count(*) from teams) = 0, 'disabled judge sees no teams');
-select tests.throws($$select * from get_leaderboard()$$, 'approved active account', 'disabled judge cannot read leaderboards');
+select tests.throws($$select * from get_leaderboard()$$, 'Administrator access required', 'disabled judge cannot read leaderboards');
 select tests.throws($$select start_evaluation((select id from public.teams where team_code='T6'))$$, 'not an approved judge|null value', 'disabled judge cannot evaluate');
 reset role;
 

@@ -6,9 +6,11 @@ import { Alert, Spinner } from '@/components/ui';
 import { fetchRubricVersions, loadReference, loadScoreLevels, loadTemplate } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import type { RubricTemplate, ScoreLevel } from '@/lib/types';
+import { useAuth } from '@/context/AuthContext';
 
 export default function RubricPreviewPage() {
   const { templateId = '' } = useParams<{ templateId: string }>();
+  const { isAdmin, profile } = useAuth();
   const [template, setTemplate] = useState<RubricTemplate | null>(null);
   const [scale, setScale] = useState<ScoreLevel[]>([]);
   const [label, setLabel] = useState('');
@@ -40,7 +42,7 @@ export default function RubricPreviewPage() {
   return (
     <div className="pb-10" data-testid="rubric-preview">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Link to="/admin/rubrics" className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"><ChevronLeft size={16} /> Rubric Management</Link>
+        <Link to={isAdmin ? '/admin/rubrics' : '/judge'} className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"><ChevronLeft size={16} /> {isAdmin ? 'Rubric Management' : 'My evaluations'}</Link>
         <span className="text-xs font-semibold text-slate-500">{label}</span>
       </div>
       <Alert tone="info" title="Read-only rubric preview" className="mb-5">
@@ -49,7 +51,7 @@ export default function RubricPreviewPage() {
       <RubricForm
         template={template}
         scale={scale}
-        header={{ team: 'Preview only — no team', project: 'Rubric preview', judge: 'Administrator', date: '—' }}
+        header={{ team: 'Preview only — no team', project: 'Rubric preview', judge: profile?.full_name || profile?.email || (isAdmin ? 'Administrator' : 'Judge'), date: '—' }}
         scores={{}}
         notes={{}}
         sectionNotes={{}}

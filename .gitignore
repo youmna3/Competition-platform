@@ -1,5 +1,7 @@
 node_modules
 dist
+scripts/load/.staging-fixture.json
+scripts/load/results/
 .env
 .env.local
 *.log

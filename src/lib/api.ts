@@ -52,7 +52,7 @@ export function loadReference(force = false): Promise<Reference> {
       return {
         governorates: requireArray(unwrap(g) as Governorate[] | null, 'Governorates'),
         competitions: requireArray(unwrap(c) as Competition[] | null, 'Competitions'),
-        levels: requireArray(unwrap(l) as Level[] | null, 'Levels'),
+        levels: requireArray(unwrap(l) as Level[] | null, 'Levels').filter((level) => level.is_active !== false),
       };
     })().catch((e) => {
       referenceCache = null;

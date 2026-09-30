@@ -147,13 +147,6 @@ export default function LeaderboardPage() {
             {competitions.map((c) => (
               <option key={c.code} value={`c:${c.code}`}>{c.label}</option>
             ))}
-            {org === 'DECI' && (
-              <optgroup label="Levels 4 & 5 — by actual level">
-                {ref?.levels.filter((l) => l.competition_code === 'DECI_L45').map((l) => (
-                  <option key={l.code} value={`l:${l.code}`}>{l.label} only</option>
-                ))}
-              </optgroup>
-            )}
           </Select>
           <Select value={gov} onChange={(e) => set('gov', e.target.value)} aria-label="Governorate">
             <option value="">All governorates</option>
@@ -165,7 +158,7 @@ export default function LeaderboardPage() {
       {error && <Alert tone="error" title="Could not load the leaderboard" className="mb-4">{error}</Alert>}
       {(filters.level || filters.governorate) && (
         <Alert tone="info" className="mb-4">
-          Ranks are recalculated within the filtered view{filters.level ? ' (a single level of the combined Levels 4 & 5 category)' : ''}{filters.governorate ? ' for the selected governorate' : ''}.
+          Ranks are recalculated within the filtered view{filters.governorate ? ' for the selected governorate' : ''}.
         </Alert>
       )}
 

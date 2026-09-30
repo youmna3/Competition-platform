@@ -89,7 +89,7 @@ export default function ImportTeamsModal({ open, onClose, reference, judges, onI
             {TEMPLATE_HEADERS.map((h, i) => <span key={h}><code className="rounded bg-white px-1 py-0.5 text-xs">{h}</code>{i < TEMPLATE_HEADERS.length - 1 ? ', ' : ''}</span>)}.
           </p>
           <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-slate-600">
-            <li>Organization: DEMI or DECI. Grade or Level: Grade 4, Grade 5, Grade 6, Level 1, Level 2, Level 3, Level 4 or Level 5.</li>
+            <li>Organization: DEMI or DECI. Grade or Level: Grade 4, Grade 5, Grade 6, Level 1, Level 2, Level 3, or Levels 4 &amp; 5.</li>
             <li>Governorate: Alexandria, Cairo, Monufia, Assiut or Suez.</li>
             <li>Judge Emails (optional): e-mails of approved judges separated by “;”. Existing Team IDs are updated within the same organization.</li>
             <li>The import is all-or-nothing: if any row is invalid, nothing is written.</li>

@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
+    "load:setup": "node scripts/load/setup-staging.mjs",
+    "load:migrations": "node scripts/load/verify-migrations.mjs",
     "verify:rubrics": "python3 scripts/verify_rubrics.py ./rubrics/pdf",
     "gen:seed": "python3 scripts/gen_seed.py > supabase/migrations/20260928000004_seed_reference.sql"
   },
