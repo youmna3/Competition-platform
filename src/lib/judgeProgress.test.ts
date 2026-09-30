@@ -25,13 +25,20 @@ describe('judge assignment progress', () => {
     expect(evaluationProgressStatus(evaluation('e2', 't1', 'j1', 'submitted'))).toBe('submitted');
   });
 
-  it('calculates a judge with no starts and includes judges with no assignments', () => {
+  it('calculates a user with no starts and excludes users with no assignments', () => {
     const judges = [profile('j1', 'No Starts'), profile('j2', 'Unassigned')];
     const teams = [team('t1', 'DEMI'), team('t2', 'DECI')];
     const assignments: TeamJudge[] = teams.map((t) => ({ team_id: t.id, judge_id: 'j1', assigned_at: '2026-01-01' }));
     const rows = buildJudgeProgress(judges, assignments, teams, []);
     expect(rows.find((row) => row.judge.id === 'j1')).toMatchObject({ assigned: 2, completed: 0, inProgress: 0, notStarted: 2, completionPercentage: 0 });
-    expect(rows.find((row) => row.judge.id === 'j2')).toMatchObject({ assigned: 0, notStarted: 0, completionPercentage: 0 });
+    expect(rows.find((row) => row.judge.id === 'j2')).toBeUndefined();
+  });
+
+  it('includes an administrator when the administrator is assigned to evaluate', () => {
+    const admin = { ...profile('admin', 'Admin Evaluator'), role: 'admin' as const };
+    const rows = buildJudgeProgress([admin], [{ team_id: 't1', judge_id: admin.id, assigned_at: '2026-01-01' }], [team('t1','DEMI')], []);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ judge: { role: 'admin' }, assigned: 1, notStarted: 1 });
   });
 
   it('keeps multiple judges on one team independent and updates after submission', () => {
@@ -56,7 +63,8 @@ describe('judge assignment progress', () => {
     expect(page).toContain('All organizations');
     expect(page).toContain('All grades / levels');
     expect(page).toContain('All governorates');
-    expect(page).toContain('All judges');
+    expect(page).toContain('All assigned evaluators');
+    expect(page).toContain('fetchEvaluatorProgressPage');
     expect(page).toContain('Any status');
   });
 });

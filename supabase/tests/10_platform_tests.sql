@@ -586,6 +586,26 @@ select tests.ok(
 );
 reset role;
 
+select tests.login('admin'); set role authenticated;
+select admin_set_team_judges(
+  (select id from teams where team_code='T6'),
+  array[tests.uid('j3'),tests.uid('admin')]
+);
+select tests.ok(
+  (admin_evaluator_progress_page(jsonb_build_object('judge',tests.uid('admin')::text),1,20)->>'total')::int=1,
+  'an assigned administrator appears in Judge Progress'
+);
+select tests.ok(
+  admin_evaluator_progress_page(jsonb_build_object('judge',tests.uid('admin')::text),1,20)->'rows'->0->>'role'='admin',
+  'Judge Progress does not filter assigned evaluators by role'
+);
+select tests.ok(
+  exists(select 1 from jsonb_array_elements(admin_assigned_evaluator_choices()) x where x->>'id'=tests.uid('admin')::text),
+  'assigned administrator appears in the evaluator filter'
+);
+select admin_set_team_judges((select id from teams where team_code='T6'),array[tests.uid('j3')]);
+reset role;
+
 -- -----------------------------------------------------------------------------
 -- 12. Disabled judges lose access immediately
 -- -----------------------------------------------------------------------------

@@ -41,16 +41,15 @@ export function buildJudgeProgress(
   assignments.forEach((assignment) => {
     const team = teamById.get(assignment.team_id);
     const judge = profileById.get(assignment.judge_id);
-    if (!team || !judge || judge.role !== 'judge') return;
+    if (!team || !judge) return;
     const evaluation = evaluationByPair.get(`${assignment.judge_id}:${assignment.team_id}`) ?? null;
     const row: JudgeProgressAssignment = { judge, team, assignment, evaluation, status: evaluationProgressStatus(evaluation) };
     assignmentsByJudge.set(judge.id, [...(assignmentsByJudge.get(judge.id) ?? []), row]);
   });
 
-  return profiles
-    .filter((profile) => profile.role === 'judge')
-    .map((judge) => {
-      const rows = assignmentsByJudge.get(judge.id) ?? [];
+  return [...assignmentsByJudge.entries()]
+    .map(([judgeId, rows]) => {
+      const judge = profileById.get(judgeId)!;
       const completed = rows.filter((row) => row.status === 'submitted').length;
       const inProgress = rows.filter((row) => row.status === 'in_progress').length;
       const notStarted = rows.filter((row) => row.status === 'not_started').length;

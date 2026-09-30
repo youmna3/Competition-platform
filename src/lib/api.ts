@@ -49,6 +49,13 @@ export interface AdminProgressStats { judges_not_started:number; judges_incomple
 export async function fetchAdminProgressStats(): Promise<AdminProgressStats> {
   return unwrap(await supabase.rpc('admin_progress_stats')) as AdminProgressStats;
 }
+export async function fetchEvaluatorProgressPage<T>(filters: Record<string,string>, page:number, pageSize:number): Promise<PageResult<T>> {
+  const data=unwrap(await supabase.rpc('admin_evaluator_progress_page',{p_filters:filters,p_page:page,p_page_size:pageSize})) as PageResult<T>;
+  return requirePage(data,'Evaluator progress page');
+}
+export async function fetchAssignedEvaluatorChoices(): Promise<Pick<Profile,'id'|'email'|'full_name'|'role'>[]> {
+  return requireArray(unwrap(await supabase.rpc('admin_assigned_evaluator_choices')) as Pick<Profile,'id'|'email'|'full_name'|'role'>[],'Assigned evaluator choices');
+}
 
 export function hydrateRubricTemplate(
   template: Omit<RubricTemplate, 'sections' | 'bonus'>,
