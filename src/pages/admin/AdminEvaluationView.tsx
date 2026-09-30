@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, RotateCcw } from 'lucide-react';
-import { fetchAudit, fetchEvaluation, fetchProfiles, fetchTeam, loadScoreLevels, loadTemplate, reopenEvaluation } from '@/lib/api';
+import { fetchAdminPage, fetchEvaluation, fetchProfiles, fetchTeam, loadScoreLevels, loadTemplate, reopenEvaluation } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import type { AuditEntry, Evaluation, Profile, RubricTemplate, ScoreLevel, Team } from '@/lib/types';
 import type { ScoreMap } from '@/lib/scoring';
 import RubricForm from '@/components/RubricForm';
 import { Alert, Badge, Button, Card, CardHeader, Field, Modal, Spinner, Textarea, formatDate, useToast } from '@/components/ui';
 import { AuditList } from './AuditPage';
+import Pagination from '@/components/Pagination';
 
 export default function AdminEvaluationView() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ export default function AdminEvaluationView() {
   const [scores, setScores] = useState<ScoreMap>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [auditTotal,setAuditTotal]=useState(0),[auditPage,setAuditPage]=useState(1),[auditPageSize,setAuditPageSize]=useState(20);
   const [error, setError] = useState<string | null>(null);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reason, setReason] = useState('');
@@ -30,17 +32,17 @@ export default function AdminEvaluationView() {
     try {
       const { evaluation: ev, scores: sc } = await fetchEvaluation(id);
       const [t, tpl, lv, profiles, au] = await Promise.all([
-        fetchTeam(ev.team_id), loadTemplate(ev.template_id), loadScoreLevels(ev.template_id), fetchProfiles(), fetchAudit({ evaluationId: id, limit: 500 }),
+        fetchTeam(ev.team_id), loadTemplate(ev.template_id), loadScoreLevels(ev.template_id), fetchProfiles(), fetchAdminPage<AuditEntry>('audit',{evaluation_id:id},auditPage,auditPageSize),
       ]);
       const s: ScoreMap = {};
       const n: Record<string, string> = {};
       sc.forEach((r) => { s[r.criterion_id] = r.score; n[r.criterion_id] = r.note; });
-      setEvaluation(ev); setTeam(t); setTemplate(tpl); setScale(lv); setScores(s); setNotes(n); setAudit(au);
+      setEvaluation(ev); setTeam(t); setTemplate(tpl); setScale(lv); setScores(s); setNotes(n); setAudit(au.rows);setAuditTotal(au.total);
       setJudge(profiles.find((p) => p.id === ev.judge_id) ?? null);
     } catch (e) {
       setError(errorMessage(e));
     }
-  }, [id]);
+  }, [id,auditPage,auditPageSize]);
   useEffect(() => { void load(); }, [load]);
 
   const doReopen = async () => {
@@ -93,6 +95,7 @@ export default function AdminEvaluationView() {
       <Card className="mt-6">
         <CardHeader title="Change history" subtitle="Every score change, submission and reopen for this evaluation" />
         <AuditList entries={audit} />
+        <Pagination page={auditPage} pageSize={auditPageSize} total={auditTotal} onPageChange={setAuditPage} onPageSizeChange={size=>{setAuditPageSize(size);setAuditPage(1)}}/>
       </Card>
 
       <Modal

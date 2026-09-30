@@ -83,14 +83,13 @@ describe('admin rubric management', () => {
     expect(result.bonus?.criteria).toHaveLength(1);
   });
 
-  it('uses a controlled responsive menu through tablet and smaller desktop widths', () => {
-    expect(layoutSource).toContain('navigationNeedsMenu');
-    expect(layoutSource).toContain('new ResizeObserver(measure)');
-    expect(layoutSource).toContain("window.addEventListener('resize', measure)");
-    expect(layoutSource).toContain("aria-expanded={open}");
-    expect(layoutSource).toContain("aria-controls=\"responsive-navigation\"");
-    expect(layoutSource).toContain("event.key === 'Escape'");
-    expect(layoutSource).toContain('open && compactNavigation');
+  it('keeps permitted navigation tabs directly visible without an expandable menu', () => {
+    expect(layoutSource).toContain('flex w-full flex-wrap items-center');
+    expect(layoutSource).toContain('aria-label="Primary navigation"');
+    expect(layoutSource).toContain('Sign Out');
+    expect(layoutSource).not.toContain('navigationNeedsMenu');
+    expect(layoutSource).not.toContain('responsive-navigation');
+    expect(layoutSource).not.toContain('aria-expanded');
   });
 
   it('lets rubric editor controls shrink or stack without page-level overflow', () => {

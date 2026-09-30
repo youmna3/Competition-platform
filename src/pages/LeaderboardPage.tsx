@@ -2,12 +2,13 @@ import clsx from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download, Eye, EyeOff, Medal, RefreshCw, Trophy } from 'lucide-react';
-import { fetchLeaderboard, loadReference, setPublication, subscribeToResults, type Reference } from '@/lib/api';
+import { fetchAdminPage, loadReference, setPublication, subscribeToResults, type Reference } from '@/lib/api';
 import { errorMessage, supabase } from '@/lib/supabase';
 import type { Competition, LeaderboardRow, Organization } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { exportLeaderboard } from '@/lib/exportResults';
 import { Alert, Badge, Button, Card, EmptyState, PageHeader, Select, Spinner, formatDate, formatScore, useToast } from '@/components/ui';
+import Pagination from '@/components/Pagination';
 
 export default function LeaderboardPage() {
   const { isAdmin } = useAuth();
@@ -23,6 +24,7 @@ export default function LeaderboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [busyComp, setBusyComp] = useState<string | null>(null);
+  const [page, setPage] = useState(1), [pageSize, setPageSize] = useState(20), [total, setTotal] = useState(0);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filters = useMemo(() => {
@@ -36,9 +38,10 @@ export default function LeaderboardPage() {
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     try {
-      const [r, lb] = await Promise.all([loadReference(true), fetchLeaderboard(filters)]);
+      const [r, result] = await Promise.all([loadReference(true), fetchAdminPage<LeaderboardRow>('leaderboard', Object.fromEntries(Object.entries(filters).filter(([, value]) => value)), page, pageSize)]);
       setRef(r);
-      setRows(lb);
+      setRows(result.rows.map((row) => ({ ...row, avg_core: Number(row.avg_core), avg_bonus: Number(row.avg_bonus) })));
+      setTotal(result.total);
       setUpdatedAt(new Date());
       setError(null);
     } catch (e) {
@@ -46,7 +49,7 @@ export default function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, page, pageSize]);
 
   useEffect(() => {
     void load();
@@ -78,6 +81,7 @@ export default function LeaderboardPage() {
     if (v) next.set(k, v);
     else next.delete(k);
     if (k === 'org') next.delete('level');
+    setPage(1);
     setParams(next, { replace: true });
   };
 
@@ -185,6 +189,7 @@ export default function LeaderboardPage() {
           ))}
         </div>
       )}
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />
     </div>
   );
 }

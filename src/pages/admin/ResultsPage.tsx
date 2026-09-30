@@ -2,11 +2,12 @@ import clsx from 'clsx';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Download, ExternalLink, Search } from 'lucide-react';
-import { fetchAllEvaluations, fetchAssignments, fetchProfiles, fetchTeamResults, loadReference, subscribeToResults, type Reference } from '@/lib/api';
+import { fetchAdminPage, fetchAssignmentsForTeams, fetchEvaluationsForTeams, fetchProfiles, loadReference, subscribeToResults, type Reference } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import type { Evaluation, Profile, TeamJudge, TeamResult } from '@/lib/types';
 import { Alert, Badge, Button, Card, EmptyState, Input, OrgBadge, PageHeader, Select, Spinner, formatDate, formatScore } from '@/components/ui';
 import { useFullExport } from './useFullExport';
+import Pagination from '@/components/Pagination';
 
 export default function ResultsPage() {
   const [params, setParams] = useSearchParams();
@@ -23,23 +24,26 @@ export default function ResultsPage() {
   const [fComp, setFComp] = useState('');
   const [fGov, setFGov] = useState('');
   const [fStatus, setFStatus] = useState('');
+  const [page,setPage]=useState(1),[pageSize,setPageSize]=useState(20),[total,setTotal]=useState(0);
   const { exporting, runExport } = useFullExport();
 
   const load = useCallback(async () => {
     try {
-      const [r, res, e, a, p] = await Promise.all([loadReference(), fetchTeamResults(), fetchAllEvaluations(), fetchAssignments(), fetchProfiles()]);
-      setRef(r); setResults(res); setEvals(e); setAssign(a); setProfiles(p); setError(null);
+      const [r,res,p]=await Promise.all([loadReference(),fetchAdminPage<TeamResult>('results',{search:q,competition:fComp,governorate:fGov,status:fStatus,judge:judgeFilter},page,pageSize),fetchProfiles()]);
+      const ids=res.rows.map(row=>row.team_id);const[e,a]=await Promise.all([fetchEvaluationsForTeams(ids),fetchAssignmentsForTeams(ids)]);
+      setRef(r);setResults(res.rows.map(row=>({...row,avg_core:row.avg_core===null?null:Number(row.avg_core),avg_bonus:row.avg_bonus===null?null:Number(row.avg_bonus),provisional_core:row.provisional_core===null?null:Number(row.provisional_core),provisional_bonus:row.provisional_bonus===null?null:Number(row.provisional_bonus)})));setTotal(res.total);setEvals(e);setAssign(a);setProfiles(p);setError(null);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [q,fComp,fGov,fStatus,judgeFilter,page,pageSize]);
   useEffect(() => {
     void load();
     const unsub = subscribeToResults(() => void load());
     return unsub;
   }, [load]);
+  useEffect(() => { setPage(1); }, [q, fComp, fGov, fStatus, judgeFilter]);
 
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
   const evalsByTeam = useMemo(() => {
@@ -53,17 +57,7 @@ export default function ResultsPage() {
     return m;
   }, [assign]);
 
-  const filtered = results.filter((r) => {
-    if (fComp && r.competition_code !== fComp) return false;
-    if (fGov && r.governorate_code !== fGov) return false;
-    if (fStatus === 'complete' && !r.is_complete) return false;
-    if (fStatus === 'pending' && (r.is_complete || r.judges_required === 0)) return false;
-    if (fStatus === 'unassigned' && r.judges_required > 0) return false;
-    if (judgeFilter && !assignedByTeam.get(r.team_id)?.has(judgeFilter)) return false;
-    const s = q.trim().toLowerCase();
-    if (s && ![r.team_code, r.team_name, r.project_name].some((x) => x.toLowerCase().includes(s))) return false;
-    return true;
-  });
+  const filtered = results;
 
   const toggle = (id: string) => {
     const n = new Set(open);
@@ -189,6 +183,7 @@ export default function ResultsPage() {
             </table>
           </div>
         )}
+        <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={size=>{setPageSize(size);setPage(1)}}/>
       </Card>
     </div>
   );

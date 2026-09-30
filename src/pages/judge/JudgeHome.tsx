@@ -2,11 +2,12 @@ import clsx from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, BookOpen, CheckCircle2, ChevronLeft, CircleDashed, ClipboardList, MapPin, PencilLine } from 'lucide-react';
-import { fetchAssignments, fetchMyEvaluations, fetchTeams, loadReference, type Reference } from '@/lib/api';
+import { fetchEvaluationsForTeams, fetchJudgeAssignmentPage, fetchJudgeDashboardSummary, loadReference, type JudgeDashboardSummary, type Reference } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import type { Evaluation, Organization, Team } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, Badge, Card, EmptyState, PageHeader, ProgressBar, Spinner } from '@/components/ui';
+import Pagination from '@/components/Pagination';
 
 const ORG_INFO: Record<Organization, { title: string; blurb: string; cls: string; ring: string }> = {
   DEMI: { title: 'DEMI', blurb: 'Grade 4 · Grade 5 · Grade 6', cls: 'from-demi-500 to-demi-600', ring: 'ring-demi-100' },
@@ -21,18 +22,19 @@ export default function JudgeHome() {
   const [ref, setRef] = useState<Reference | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [evals, setEvals] = useState<Evaluation[]>([]);
-  const [assigned, setAssigned] = useState<Set<string>>(new Set());
+  const [summary, setSummary] = useState<JudgeDashboardSummary>({ total: 0, submitted: 0, groups: [] });
+  const [page, setPage] = useState(1), [pageSize, setPageSize] = useState(20), [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [r, t, e, a] = await Promise.all([loadReference(), fetchTeams(), fetchMyEvaluations(), fetchAssignments()]);
+        const [r, summaryResult, teamPage] = await Promise.all([loadReference(), fetchJudgeDashboardSummary(), comp ? fetchJudgeAssignmentPage({ competition: comp }, page, pageSize) : Promise.resolve({ rows: [], total: 0 })]);
+        const e = await fetchEvaluationsForTeams(teamPage.rows.map((team) => team.id));
         setRef(r);
-        const mine = new Set(a.filter((x) => x.judge_id === profile?.id).map((x) => x.team_id));
-        setAssigned(mine);
-        setTeams(t.filter((x) => mine.has(x.id)));
+        setSummary(summaryResult); setTotal(teamPage.total);
+        setTeams(teamPage.rows);
         setEvals(e);
       } catch (err) {
         setError(errorMessage(err));
@@ -40,7 +42,7 @@ export default function JudgeHome() {
         setLoading(false);
       }
     })();
-  }, [profile?.id]);
+  }, [profile?.id, comp, page, pageSize]);
 
   const levelMap = useMemo(() => new Map(ref?.levels.map((l) => [l.code, l]) ?? []), [ref]);
   const govMap = useMemo(() => new Map(ref?.governorates.map((g) => [g.code, g.name]) ?? []), [ref]);
@@ -51,16 +53,11 @@ export default function JudgeHome() {
       const l = levelMap.get(t.level_code);
       return l && pred(l.competition_code, l.organization);
     });
-  const stats = (list: Team[]) => ({
-    total: list.length,
-    done: list.filter((t) => evalByTeam.get(t.id)?.status === 'submitted').length,
-  });
-
   if (loading) return <Spinner />;
   if (error) return <Alert tone="error" title="Could not load your assignments">{error}</Alert>;
   if (!ref) return null;
 
-  const overall = stats(teams);
+  const overall = { total: summary.total, done: summary.submitted };
   const competition = ref.competitions.find((c) => c.code === comp);
   const competitionRubrics = comp
     ? Array.from(new Map(teamsIn((code) => code === comp).filter((team) => Boolean(team.template_id)).map((team) => [team.template_id as string, team])).values())
@@ -75,24 +72,24 @@ export default function JudgeHome() {
         actions={competitionRubrics.length > 0 ? <div className="flex flex-wrap gap-2">{competitionRubrics.map((team) => <Link key={team.template_id} to={`/rubrics/${team.template_id}/preview`} className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-brand-600 px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50"><BookOpen size={16} /> View Rubric{competitionRubrics.length > 1 ? ` (${team.team_code})` : ''}</Link>)}</div> : undefined}
       />
 
-      {assigned.size === 0 && <Card><EmptyState icon={<ClipboardList />} title="No teams assigned yet">An administrator will assign teams to you. They will appear here automatically when you reload.</EmptyState></Card>}
+      {summary.total === 0 && <Card><EmptyState icon={<ClipboardList />} title="No teams assigned yet">An administrator will assign teams to you. They will appear here automatically when you reload.</EmptyState></Card>}
 
-      {assigned.size > 0 && !org && <div className="grid gap-5 md:grid-cols-2">{(['DEMI', 'DECI'] as Organization[]).map((organization) => {
-        const summary = stats(teamsIn((_, teamOrganization) => teamOrganization === organization));
+      {summary.total > 0 && !org && <div className="grid gap-5 md:grid-cols-2">{(['DEMI', 'DECI'] as Organization[]).map((organization) => {
+        const groups=summary.groups.filter(group=>group.organization===organization);const orgSummary={total:groups.reduce((n,g)=>n+g.total,0),done:groups.reduce((n,g)=>n+g.submitted,0)};
         return <button key={organization} onClick={() => setParams({ org: organization })} className={clsx('group relative overflow-hidden rounded-2xl bg-gradient-to-br p-6 text-left text-white shadow-lg ring-4 transition hover:-translate-y-0.5 hover:shadow-xl', ORG_INFO[organization].cls, ORG_INFO[organization].ring)}>
           <span className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full border-[18px] border-white/15" aria-hidden />
           <span className={clsx('pointer-events-none absolute right-16 top-6 h-3 w-3 rounded-full', organization === 'DEMI' ? 'bg-amber-300' : 'bg-orange-500')} aria-hidden />
           <div className="relative flex items-start justify-between"><div><p className="text-4xl font-semibold tracking-tight">{ORG_INFO[organization].title}</p><p className="mt-1 text-sm text-white/80">{ORG_INFO[organization].blurb}</p></div><ArrowRight className="h-6 w-6 opacity-70 transition group-hover:translate-x-1" /></div>
-          <div className="relative mt-8"><div className="mb-1.5 flex justify-between text-sm font-medium"><span>{summary.total} assigned team{summary.total === 1 ? '' : 's'}</span><span>{summary.done} submitted</span></div><div className="h-2 overflow-hidden rounded-full bg-white/25"><div className="h-full rounded-full bg-white" style={{ width: `${summary.total ? (summary.done / summary.total) * 100 : 0}%` }} /></div></div>
+          <div className="relative mt-8"><div className="mb-1.5 flex justify-between text-sm font-medium"><span>{orgSummary.total} assigned team{orgSummary.total === 1 ? '' : 's'}</span><span>{orgSummary.done} submitted</span></div><div className="h-2 overflow-hidden rounded-full bg-white/25"><div className="h-full rounded-full bg-white" style={{ width: `${orgSummary.total ? (orgSummary.done / orgSummary.total) * 100 : 0}%` }} /></div></div>
         </button>;
       })}</div>}
 
       {org && !comp && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{ref.competitions.filter((item) => item.organization === org).map((item) => {
-        const summary = stats(teamsIn((code) => code === item.code));
-        return <button key={item.code} disabled={summary.total === 0} onClick={() => setParams({ org, c: item.code })} className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-card transition hover:border-brand-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-200">
-          <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-900">{item.label}</p>{summary.total > 0 && <ArrowRight className="h-5 w-5 text-slate-400 transition group-hover:translate-x-1 group-hover:text-brand-600" />}</div>
-          <p className="mt-1 text-sm text-slate-500">{summary.total === 0 ? 'No assigned teams' : `${summary.done}/${summary.total} submitted`}</p>
-          {summary.total > 0 && <ProgressBar className="mt-4" value={summary.done} max={summary.total} tone={summary.done === summary.total ? 'green' : 'blue'} />}
+        const group=summary.groups.find(value=>value.competition_code===item.code);const competitionSummary={total:group?.total??0,done:group?.submitted??0};
+        return <button key={item.code} disabled={competitionSummary.total === 0} onClick={() => {setPage(1);setParams({ org, c: item.code })}} className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-card transition hover:border-brand-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-200">
+          <div className="flex items-center justify-between"><p className="text-lg font-bold text-slate-900">{item.label}</p>{competitionSummary.total > 0 && <ArrowRight className="h-5 w-5 text-slate-400 transition group-hover:translate-x-1 group-hover:text-brand-600" />}</div>
+          <p className="mt-1 text-sm text-slate-500">{competitionSummary.total === 0 ? 'No assigned teams' : `${competitionSummary.done}/${competitionSummary.total} submitted`}</p>
+          {competitionSummary.total > 0 && <ProgressBar className="mt-4" value={competitionSummary.done} max={competitionSummary.total} tone={competitionSummary.done === competitionSummary.total ? 'green' : 'blue'} />}
         </button>;
       })}</div>}
 
@@ -107,6 +104,7 @@ export default function JudgeHome() {
           <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-sm"><span className="font-semibold tabular-nums text-slate-900">{evaluation ? <>{evaluation.core_total}<span className="font-normal text-slate-400">/100</span>{evaluation.bonus_total > 0 && <span className="ml-2 text-xs font-medium text-amber-700">+{evaluation.bonus_total} bonus</span>}</> : '—'}</span><span className="inline-flex items-center gap-1 font-medium text-brand-700">{status === 'submitted' ? 'View' : status === 'draft' ? 'Continue' : 'Start'}<ArrowRight size={14} className="transition group-hover:translate-x-0.5" /></span></div>
         </Link>;
       })}</div>}
+      {org&&comp&&<Card className="mt-4"><Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={size=>{setPageSize(size);setPage(1)}}/></Card>}
     </div>
   );
 }

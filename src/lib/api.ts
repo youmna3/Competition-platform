@@ -4,6 +4,7 @@ import type {
   LeaderboardRow, Level, Profile, RubricCriterion, RubricSection, RubricTemplate, ScoreChange, ScoreLevel,
   Team, TeamJudge, TeamResult, RubricVersionSummary, UserInvitation,
 } from './types';
+import type { PageResult } from './pagination';
 
 export function unwrap<T>(res: { data: T | null; error: unknown }): T {
   if (res.error) throw res.error;
@@ -13,6 +14,40 @@ export function unwrap<T>(res: { data: T | null; error: unknown }): T {
 export function requireArray<T>(value: T[] | null | undefined, label: string): T[] {
   if (!Array.isArray(value)) throw new Error(`${label} response is missing or is not an array`);
   return value;
+}
+
+function requirePage<T>(value: PageResult<T> | null | undefined, label: string): PageResult<T> {
+  const rows = requireArray(value?.rows, label);
+  const total = Number(value?.total);
+  if (!Number.isSafeInteger(total) || total < 0) throw new Error(`${label} response has an invalid total`);
+  return { rows, total };
+}
+
+export async function fetchAdminPage<T>(kind: 'teams' | 'judges' | 'invitations' | 'progress' | 'progress_details' | 'results' | 'audit' | 'leaderboard' | 'rubric_versions', filters: Record<string, string>, page: number, pageSize: number): Promise<PageResult<T>> {
+  const data = unwrap(await supabase.rpc('admin_list_page', { p_kind: kind, p_filters: filters, p_page: page, p_page_size: pageSize })) as PageResult<T>;
+  return requirePage(data, `${kind} page`);
+}
+
+export interface JudgeAssignmentPageRow extends Team {
+  level_label: string;
+  governorate_name: string;
+  evaluation_id: string | null;
+  evaluation_status: 'draft' | 'submitted' | null;
+  evaluation_updated_at: string | null;
+  submitted_at: string | null;
+}
+
+export async function fetchJudgeAssignmentPage(filters: Record<string, string>, page: number, pageSize: number): Promise<PageResult<JudgeAssignmentPageRow>> {
+  const data = unwrap(await supabase.rpc('judge_assignment_page', { p_filters: filters, p_page: page, p_page_size: pageSize })) as PageResult<JudgeAssignmentPageRow>;
+  return requirePage(data, 'Assigned teams page');
+}
+export interface JudgeDashboardSummary { total: number; submitted: number; groups: { organization: 'DEMI'|'DECI'; competition_code: string; total: number; submitted: number }[] }
+export async function fetchJudgeDashboardSummary(): Promise<JudgeDashboardSummary> {
+  return unwrap(await supabase.rpc('judge_dashboard_summary')) as JudgeDashboardSummary;
+}
+export interface AdminProgressStats { judges_not_started:number; judges_incomplete:number; judges_finished:number; teams_waiting:number }
+export async function fetchAdminProgressStats(): Promise<AdminProgressStats> {
+  return unwrap(await supabase.rpc('admin_progress_stats')) as AdminProgressStats;
 }
 
 export function hydrateRubricTemplate(
@@ -213,6 +248,15 @@ export async function fetchAssignments(): Promise<TeamJudge[]> {
   }
   return all;
 }
+export async function fetchAssignmentsForTeams(teamIds: string[]): Promise<TeamJudge[]> {
+  if (!teamIds.length) return [];
+  return unwrap(await supabase.from('team_judges').select('team_id,judge_id,assigned_at').in('team_id', teamIds)) as TeamJudge[];
+}
+
+export async function fetchAssignmentsForJudge(judgeId: string): Promise<TeamJudge[]> {
+  if (!judgeId) return [];
+  return unwrap(await supabase.from('team_judges').select('team_id, judge_id, assigned_at').eq('judge_id', judgeId)) as TeamJudge[];
+}
 
 export async function saveTeam(team: Partial<Team> & Pick<Team, 'team_code' | 'name' | 'project_name' | 'level_code' | 'governorate_code'>): Promise<Team> {
   const payload = {
@@ -261,6 +305,10 @@ export async function fetchAllEvaluations(): Promise<Evaluation[]> {
     if (rows.length < page) break;
   }
   return all;
+}
+export async function fetchEvaluationsForTeams(teamIds: string[]): Promise<Evaluation[]> {
+  if (!teamIds.length) return [];
+  return unwrap(await supabase.from('evaluations').select('*').in('team_id', teamIds)) as Evaluation[];
 }
 
 export async function fetchAllScores(): Promise<EvaluationScore[]> {

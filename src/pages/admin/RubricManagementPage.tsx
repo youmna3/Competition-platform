@@ -2,10 +2,11 @@ import clsx from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Eye, History, Pencil, Plus, Save, Star, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { countTemplateEvaluations, createRubricDraft, fetchRubricVersions, loadReference, loadScoreLevels, loadTemplate, publishRubric, saveRubricDraft, type Reference, type RubricDraftPayload } from '@/lib/api';
+import { countTemplateEvaluations, createRubricDraft, fetchAdminPage, loadReference, loadScoreLevels, loadTemplate, publishRubric, saveRubricDraft, type Reference, type RubricDraftPayload } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import type { Competition, Organization, RubricSection, RubricTemplate, RubricVersionSummary, ScoreLevel } from '@/lib/types';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Spinner, Textarea, useToast } from '@/components/ui';
+import Pagination from '@/components/Pagination';
 
 interface CatalogEntry { competition: Competition; template: RubricTemplate }
 
@@ -24,21 +25,21 @@ export default function RubricManagementPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [versionPage,setVersionPage]=useState(1),[versionPageSize,setVersionPageSize]=useState(20),[versionTotal,setVersionTotal]=useState(0);
 
   const load = useCallback(async (preferred?: string) => {
     setLoading(true);
     try {
-      const [ref, allVersions] = await Promise.all([loadReference(true), fetchRubricVersions()]);
+      const ref = await loadReference(true);
       const active = await Promise.all(ref.competitions.map(async (competition) => ({ competition, template: await loadTemplate(competition.template_id) })));
-      setReference(ref); setVersions(allVersions); setEntries(active);
+      setReference(ref); setEntries(active);
       setSelectedId(preferred || selectedId || active[0]?.template.id || ''); setError(null);
     } catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, [selectedId]);
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const selectedSummary = versions.find(x => x.id === selectedId);
-  const family = selectedSummary?.family_id ?? selectedTemplate?.family_id ?? selectedTemplate?.id;
+  const family = selectedTemplate?.family_id ?? selectedTemplate?.id ?? entries.find(x=>x.template.id===selectedId)?.template.family_id ?? selectedId;
   const selectedEntry = entries.find(x => (x.template.family_id ?? x.template.id) === family);
   const visibleEntries = entries.filter(x => x.competition.organization === organization);
   const familyVersions = versions.filter(x => (x.family_id ?? x.id) === family).sort((a,b)=>(b.version??1)-(a.version??1));
@@ -53,6 +54,7 @@ export default function RubricManagementPage() {
       .finally(() => { if (!cancelled) setDetailLoading(false); });
     return () => { cancelled = true; };
   }, [selectedId]);
+  useEffect(()=>{if(!family)return;fetchAdminPage<RubricVersionSummary>('rubric_versions',{family},versionPage,versionPageSize).then(result=>{setVersions(result.rows);setVersionTotal(result.total)}).catch(e=>setError(errorMessage(e)))},[family,versionPage,versionPageSize]);
 
   const startEdit = async () => {
     if (!selectedTemplate) return; setBusy(true);
@@ -70,6 +72,7 @@ export default function RubricManagementPage() {
     {error&&<Alert tone="error" className="mb-4">{error}</Alert>}
     <Card className="mb-6 p-4"><div className="flex gap-2">{(['DEMI','DECI'] as Organization[]).map(org=><button key={org} onClick={()=>{setOrganization(org);const e=entries.find(x=>x.competition.organization===org);if(e)setSelectedId(e.template.id)}} className={clsx('rounded-full px-5 py-2 text-sm font-semibold',organization===org?(org==='DEMI'?'bg-demi-500 text-white':'bg-deci-500 text-white'):'bg-slate-100 text-slate-600')}>{org}</button>)}</div><div className="mt-3 flex flex-wrap gap-2">{visibleEntries.map(e=><button key={e.competition.code} onClick={()=>setSelectedId(e.template.id)} className={clsx('rounded-full border px-4 py-2 text-sm',family===(e.template.family_id??e.template.id)?'border-brand-600 bg-brand-50 text-brand-800':'border-slate-200')}>{e.competition.label}</button>)}</div>{familyVersions.length>0&&<div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4"><History size={15}/><span className="text-xs font-semibold uppercase text-slate-500">History</span>{familyVersions.map(v=><button key={v.id} onClick={()=>setSelectedId(v.id)} className={clsx('rounded-full px-3 py-1 text-xs',selectedId===v.id?'bg-slate-800 text-white':'bg-slate-100')}>v{v.version??1} · {v.lifecycle??'published'}</button>)}</div>}</Card>
     {detailLoading ? <Spinner label="Loading complete rubric…"/> : editing&&editing.id===selectedId?<RubricEditor template={editing} scale={scale} evaluationCount={evaluationCount} onCancel={()=>setEditing(null)} onChanged={async id=>{setEditing(null);await load(id)}}/>:selectedTemplate&&selectedEntry?<RubricDetails template={selectedTemplate} competition={selectedEntry.competition} scale={scale}/>:<Card><EmptyState title="Rubric data unavailable">{error ? 'The database returned an error. Review the message above and verify the rubric-management migration.' : 'Select a rubric version.'}</EmptyState></Card>}
+    {family&&<Card className="mt-4"><Pagination page={versionPage} pageSize={versionPageSize} total={versionTotal} onPageChange={setVersionPage} onPageSizeChange={size=>{setVersionPageSize(size);setVersionPage(1)}}/></Card>}
   </div>;
 }
 

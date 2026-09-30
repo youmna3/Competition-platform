@@ -1,24 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pencil, Plus, Search, Trash2, Upload, UserPlus, UsersRound } from 'lucide-react';
 import {
-  deleteTeam, fetchAssignments, fetchProfiles, fetchTeamResults, fetchTeams, loadReference, saveTeam, setTeamJudges, type Reference,
+  deleteTeam, fetchAdminPage, fetchProfiles, loadReference, saveTeam, setTeamJudges, type Reference,
 } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
-import type { Organization, Profile, Team, TeamJudge, TeamResult } from '@/lib/types';
+import type { Organization, Profile, Team } from '@/lib/types';
 import JudgePicker from '@/components/JudgePicker';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, OrgBadge, PageHeader, Select, Spinner, useToast } from '@/components/ui';
 import ImportTeamsModal from './ImportTeamsModal';
 import { hasTeamIdConflict } from '@/lib/importTeams';
+import Pagination from '@/components/Pagination';
+
+interface PagedTeam extends Team { judge_ids: string[]; judges_required: number; judges_submitted: number }
 
 interface Draft { id?: string; team_code: string; name: string; project_name: string; organization: Organization | ''; level_code: string; governorate_code: string; judges: Set<string> }
 
 export default function TeamsPage() {
   const toast = useToast();
   const [ref, setRef] = useState<Reference | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [assign, setAssign] = useState<TeamJudge[]>([]);
+  const [teams, setTeams] = useState<PagedTeam[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [results, setResults] = useState<Map<string, TeamResult>>(new Map());
+  const [total, setTotal] = useState(0), [page, setPage] = useState(1), [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,16 +41,15 @@ export default function TeamsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [r, t, a, p, res] = await Promise.all([loadReference(), fetchTeams(), fetchAssignments(), fetchProfiles(), fetchTeamResults()]);
-      setRef(r); setTeams(t); setAssign(a); setProfiles(p);
-      setResults(new Map(res.map((x) => [x.team_id, x])));
+      const [r, t, p] = await Promise.all([loadReference(), fetchAdminPage<PagedTeam>('teams', { search:q, organization:fOrg, level:fLevel, governorate:fGov, status:fStatus }, page, pageSize), fetchProfiles()]);
+      setRef(r); setTeams(t.rows); setTotal(t.total); setProfiles(p);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [q, fOrg, fLevel, fGov, fStatus, page, pageSize]);
   useEffect(() => { void load(); }, [load]);
 
   const levelMap = useMemo(() => new Map(ref?.levels.map((l) => [l.code, l]) ?? []), [ref]);
@@ -57,30 +58,16 @@ export default function TeamsPage() {
   const approvedJudges = useMemo(() => profiles.filter((p) => p.status === 'approved'), [profiles]);
   const judgesByTeam = useMemo(() => {
     const m = new Map<string, string[]>();
-    assign.forEach((a) => m.set(a.team_id, [...(m.get(a.team_id) ?? []), a.judge_id]));
+    teams.forEach((team) => m.set(team.id, team.judge_ids ?? []));
     return m;
-  }, [assign]);
+  }, [teams]);
   const teamCount = useMemo(() => {
     const m = new Map<string, number>();
-    assign.forEach((a) => m.set(a.judge_id, (m.get(a.judge_id) ?? 0) + 1));
+    teams.forEach((team) => (team.judge_ids ?? []).forEach((judge) => m.set(judge, (m.get(judge) ?? 0) + 1)));
     return m;
-  }, [assign]);
+  }, [teams]);
 
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return teams.filter((t) => {
-      const l = levelMap.get(t.level_code);
-      const r = results.get(t.id);
-      if (fOrg && l?.organization !== fOrg) return false;
-      if (fLevel && t.level_code !== fLevel) return false;
-      if (fGov && t.governorate_code !== fGov) return false;
-      if (fStatus === 'unassigned' && (r?.judges_required ?? 0) > 0) return false;
-      if (fStatus === 'pending' && (!r || r.is_complete || r.judges_required === 0)) return false;
-      if (fStatus === 'complete' && !r?.is_complete) return false;
-      if (s && ![t.team_code, t.name, t.project_name].some((x) => x.toLowerCase().includes(s))) return false;
-      return true;
-    });
-  }, [teams, q, fOrg, fLevel, fGov, fStatus, levelMap, results]);
+  const filtered = teams;
 
   const openNew = () => {
     setDraftError(null);
@@ -171,7 +158,7 @@ export default function TeamsPage() {
     <div>
       <PageHeader
         title="Teams"
-        subtitle={`${teams.length} registered teams · assign one or more judges to each team`}
+        subtitle={`${total} registered teams · assign one or more judges to each team`}
         actions={
           <>
             <Button variant="secondary" onClick={() => setImportOpen(true)}><Upload size={16} /> Import CSV / Excel</Button>
@@ -184,20 +171,20 @@ export default function TeamsPage() {
         <div className="grid gap-2 md:grid-cols-6">
           <div className="relative md:col-span-2">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input className="pl-8" placeholder="Search ID, team or project" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input className="pl-8" placeholder="Search ID, team or project" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
           </div>
-          <Select value={fOrg} onChange={(e) => { setFOrg(e.target.value); setFLevel(''); }}>
+          <Select value={fOrg} onChange={(e) => { setFOrg(e.target.value); setFLevel(''); setPage(1); }}>
             <option value="">All organizations</option><option>DEMI</option><option>DECI</option>
           </Select>
-          <Select value={fLevel} onChange={(e) => setFLevel(e.target.value)}>
+          <Select value={fLevel} onChange={(e) => { setFLevel(e.target.value); setPage(1); }}>
             <option value="">All grades / levels</option>
             {ref.levels.filter((l) => !fOrg || l.organization === fOrg).map((l) => <option key={l.code} value={l.code}>{l.organization} {l.label}</option>)}
           </Select>
-          <Select value={fGov} onChange={(e) => setFGov(e.target.value)}>
+          <Select value={fGov} onChange={(e) => { setFGov(e.target.value); setPage(1); }}>
             <option value="">All governorates</option>
             {ref.governorates.map((g) => <option key={g.code} value={g.code}>{g.name}</option>)}
           </Select>
-          <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+          <Select value={fStatus} onChange={(e) => { setFStatus(e.target.value); setPage(1); }}>
             <option value="">Any status</option><option value="unassigned">No judges</option><option value="pending">Pending</option><option value="complete">Finalized</option>
           </Select>
         </div>
@@ -239,7 +226,6 @@ export default function TeamsPage() {
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((t) => {
                   const l = levelMap.get(t.level_code);
-                  const r = results.get(t.id);
                   const judges = judgesByTeam.get(t.id) ?? [];
                   return (
                     <tr key={t.id} className="hover:bg-slate-50">
@@ -259,9 +245,9 @@ export default function TeamsPage() {
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        {!r || r.judges_required === 0 ? <Badge tone="red">Unassigned</Badge>
-                          : r.is_complete ? <Badge tone="green">Final {r.judges_submitted}/{r.judges_required}</Badge>
-                          : <Badge tone="amber">Pending {r.judges_submitted}/{r.judges_required}</Badge>}
+                        {t.judges_required === 0 ? <Badge tone="red">Unassigned</Badge>
+                          : t.judges_submitted === t.judges_required ? <Badge tone="green">Final {t.judges_submitted}/{t.judges_required}</Badge>
+                          : <Badge tone="amber">Pending {t.judges_submitted}/{t.judges_required}</Badge>}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1">
@@ -276,6 +262,7 @@ export default function TeamsPage() {
             </table>
           </div>
         )}
+        <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />
       </Card>
 
       {/* add / edit */}

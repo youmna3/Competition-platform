@@ -51,7 +51,8 @@ describe('judge dashboard assignments', () => {
     expect(dashboard).toContain("const ORG_INFO");
     expect(dashboard).toContain("(['DEMI', 'DECI'] as Organization[])");
     expect(dashboard).not.toContain('buildJudgeAssignments');
-    expect(tracker).toContain('buildJudgeAssignments');
+    expect(tracker).toContain('fetchJudgeAssignmentPage');
+    expect(tracker).toContain('<Pagination');
     expect(tracker).toContain('All governorates');
     expect(app).toContain('path="/judge/assigned-teams" element={<RequireAuth judge>');
     expect(app).toContain('path="/judge/rubrics" element={<RequireAuth judge>');

@@ -1,17 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { navigationNeedsMenu } from './Layout';
+import { readFileSync } from 'node:fs';
 
 describe('responsive primary navigation', () => {
-  it('keeps tabs only when the measured header content fits', () => {
-    expect(navigationNeedsMenu(1600, 230, 1050, 200)).toBe(false);
-    expect(navigationNeedsMenu(1536, 230, 1050, 200)).toBe(true);
-    expect(navigationNeedsMenu(1440, 230, 1050, 200)).toBe(true);
-    expect(navigationNeedsMenu(1366, 230, 1050, 200)).toBe(true);
+  const layout = readFileSync(new URL('./Layout.tsx', import.meta.url), 'utf8');
+
+  it('renders every permitted tab in a visible wrapping navigation row', () => {
+    expect(layout).toContain('flex w-full flex-wrap items-center');
+    for (const label of ['Dashboard','Teams','Judges','Judge Progress','Evaluations','Rubric Management','Audit Log','My Evaluations','Leaderboard','Sign Out']) {
+      expect(layout).toContain(label);
+    }
   });
 
-  it('collapses judge navigation on tablet and mobile widths', () => {
-    expect(navigationNeedsMenu(1024, 230, 320, 200)).toBe(false);
-    expect(navigationNeedsMenu(768, 230, 320, 200)).toBe(true);
-    expect(navigationNeedsMenu(375, 125, 320, 0)).toBe(true);
+  it('has no expandable or hamburger navigation', () => {
+    expect(layout).not.toContain('compactNavigation');
+    expect(layout).not.toContain('responsive-navigation');
+    expect(layout).not.toContain('aria-expanded');
   });
 });

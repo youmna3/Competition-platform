@@ -554,7 +554,40 @@ select tests.exercise_rubric_version('DECI_L1','DECI Level 1');
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 11. Disabled judges lose access immediately
+-- 11. Counted server-side pagination and role isolation
+-- -----------------------------------------------------------------------------
+select tests.login('admin'); set role authenticated;
+select tests.ok(
+  jsonb_array_length(admin_list_page('teams','{}',1,20)->'rows') <= 20,
+  'admin team pages enforce the requested page limit'
+);
+select tests.ok(
+  (admin_list_page('teams','{}',1,20)->>'total')::int = (select count(*) from teams),
+  'admin team page returns an exact total'
+);
+select tests.ok(
+  jsonb_array_length(admin_list_page('audit','{}',1,20)->'rows') <= 20,
+  'audit history is paged at the database'
+);
+reset role;
+select tests.login('j1'); set role authenticated;
+select tests.throws(
+  $$select admin_list_page('teams','{}',1,20)$$,
+  'Administrator access required',
+  'judges cannot call administrator pagination'
+);
+select tests.ok(
+  (judge_assignment_page('{}',1,20)->>'total')::int = (select count(*) from team_judges where judge_id=auth.uid()),
+  'judge assignment count is limited to the signed-in judge'
+);
+select tests.ok(
+  jsonb_array_length(judge_assignment_page('{}',1,20)->'rows') <= 20,
+  'judge assignments enforce the requested page limit'
+);
+reset role;
+
+-- -----------------------------------------------------------------------------
+-- 12. Disabled judges lose access immediately
 -- -----------------------------------------------------------------------------
 select tests.login('admin'); set role authenticated;
 update profiles set status = 'disabled' where email = 'judge3@example.com';
@@ -566,9 +599,57 @@ select tests.throws($$select start_evaluation((select id from public.teams where
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 12. Hard constraints
+-- 13. Hard constraints
 -- -----------------------------------------------------------------------------
 select tests.throws($$insert into evaluations (team_id, judge_id, template_id) select team_id, judge_id, template_id from evaluations limit 1$$, 'evaluations_team_judge_key', 'unique (team, judge) enforced');
 select tests.throws($$update evaluations set status = 'submitted', submitted_at = now(), core_scored_count = 3 where id = (select v from ids where k='e2') $$, 'submitted_complete', 'check constraint forbids incomplete submitted rows');
+
+-- -----------------------------------------------------------------------------
+-- 14. Representative pagination volume (scratch database only)
+-- -----------------------------------------------------------------------------
+reset role;
+select tests.logout();
+insert into auth.users(id,email,raw_user_meta_data,invited_at)
+select md5('pagination-judge-'||n)::uuid,
+  format('page-judge-%s@example.com',n),
+  jsonb_build_object('full_name',format('Page Judge %s',n)),now()
+from generate_series(1,100) n;
+update profiles set status='approved'
+where email like 'page-judge-%@example.com';
+
+insert into teams(team_code,name,project_name,level_code,governorate_code)
+select format('PAGE-%s',n),format('Pagination Team %s',n),format('Pagination Project %s',n),'G4','CAI'
+from generate_series(1,500) n;
+
+insert into team_judges(team_id,judge_id)
+select t.id,p.id
+from teams t
+join profiles p on p.email in (
+  format('page-judge-%s@example.com',((substring(t.team_code from 6)::int-1)%100)+1),
+  format('page-judge-%s@example.com',(substring(t.team_code from 6)::int%100)+1)
+)
+where t.team_code like 'PAGE-%';
+
+insert into evaluations(team_id,judge_id,template_id)
+select tj.team_id,tj.judge_id,t.template_id
+from team_judges tj join teams t on t.id=tj.team_id
+where t.team_code like 'PAGE-%';
+
+select tests.ok((select count(*) from teams where team_code like 'PAGE-%')=500,'pagination fixture has 500 teams');
+select tests.ok((select count(*) from profiles where email like 'page-judge-%@example.com')=100,'pagination fixture has 100 judges');
+select tests.ok((select count(*) from evaluations e join teams t on t.id=e.team_id where t.team_code like 'PAGE-%')=1000,'pagination fixture has 1,000 evaluations');
+
+select tests.login('admin'); set role authenticated;
+select tests.ok(jsonb_array_length(admin_list_page('teams','{"search":"Pagination Team"}',1,20)->'rows')=20,'large team page returns only 20 rows');
+select tests.ok((admin_list_page('teams','{"search":"Pagination Team"}',1,20)->>'total')::int=500,'large team page count covers all matching records');
+select tests.ok(jsonb_array_length(admin_list_page('judges','{"search":"Page Judge","status":"all"}',1,100)->'rows')=100,'large judge page supports 100 rows');
+select tests.ok((admin_list_page('results','{"search":"Pagination Team"}',1,20)->>'total')::int=500,'results count covers all 1,000 underlying evaluations without duplicate teams');
+select tests.ok((admin_list_page('audit','{"action":"assignment.added"}',1,20)->>'total')::int>=1000,'large audit history count is accurate');
+select tests.ok(not exists(
+  select value->>'id' from jsonb_array_elements(admin_list_page('teams','{"search":"Pagination Team"}',1,20)->'rows')
+  intersect
+  select value->>'id' from jsonb_array_elements(admin_list_page('teams','{"search":"Pagination Team"}',2,20)->'rows')
+),'adjacent team pages contain no duplicate rows');
+reset role;
 
 select 'DONE' as result;

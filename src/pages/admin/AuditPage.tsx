@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { History } from 'lucide-react';
-import { fetchAudit } from '@/lib/api';
+import { fetchAdminPage } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import type { AuditEntry } from '@/lib/types';
-import { Alert, Badge, Button, Card, EmptyState, PageHeader, Select, Spinner, formatDate } from '@/components/ui';
+import { Alert, Badge, Card, EmptyState, PageHeader, Select, Spinner, formatDate } from '@/components/ui';
+import Pagination from '@/components/Pagination';
 
 const ACTIONS: [string, string][] = [
   ['', 'All activity'], ['score', 'Score changes'], ['evaluation', 'Submissions & reopens'], ['assignment', 'Assignments'],
@@ -69,18 +70,21 @@ export function AuditList({ entries }: { entries: AuditEntry[] }) {
 
 export default function AuditPage() {
   const [action, setAction] = useState('');
-  const [limit, setLimit] = useState(200);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setEntries(await fetchAudit({ action: action || undefined, limit }));
+      const result = await fetchAdminPage<AuditEntry>('audit', { action }, page, pageSize);
+      setEntries(result.rows); setTotal(result.total);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
     }
-  }, [action, limit]);
+  }, [action, page, pageSize]);
   useEffect(() => { void load(); }, [load]);
 
   return (
@@ -88,16 +92,12 @@ export default function AuditPage() {
       <PageHeader
         title="Audit log"
         subtitle="Immutable record of score changes, submissions, reopens, assignments and access changes"
-        actions={<Select value={action} onChange={(e) => { setAction(e.target.value); setLimit(200); }} className="w-56">{ACTIONS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>}
+        actions={<Select value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }} className="w-56">{ACTIONS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>}
       />
       {error && <Alert tone="error" className="mb-4">{error}</Alert>}
       <Card>
         {!entries ? <Spinner /> : <AuditList entries={entries} />}
-        {entries && entries.length >= limit && (
-          <div className="border-t border-slate-100 p-3 text-center">
-            <Button variant="secondary" onClick={() => setLimit((l) => l + 200)}>Load more</Button>
-          </div>
-        )}
+        {entries && <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />}
       </Card>
     </div>
   );
