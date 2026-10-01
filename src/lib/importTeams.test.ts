@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildImportRows, hasTeamIdConflict, resolveLevel, splitEmails, teamIdentityKey } from './importTeams';
+import { isSelectableLevel } from './api';
 import type { Governorate, Level, Team } from './types';
 
 const levels: Level[] = [
@@ -17,6 +18,16 @@ describe('resolveLevel', () => {
     expect(resolveLevel('DECI', 'L5', levels).code).toBe('L45');
     expect(resolveLevel('DECI', 'Level 4', levels).code).toBe('L45');
     expect(resolveLevel('DECI', 'Levels 4 & 5', levels).code).toBe('L45');
+  });
+  it('uses only the canonical combined DECI Levels 4 & 5 reference in selectors', () => {
+    const withLegacy = [
+      ...levels,
+      { code: 'L4', organization: 'DECI', label: 'Level 4', competition_code: 'DECI_L45', sort_order: 4, is_active: true },
+      { code: 'L5', organization: 'DECI', label: 'Level 5', competition_code: 'DECI_L45', sort_order: 5, is_active: true },
+    ] as Level[];
+    const deci = withLegacy.filter(isSelectableLevel).filter((level) => level.organization === 'DECI');
+    expect(deci.map((level) => level.code)).toEqual(['L1', 'L2', 'L3', 'L45']);
+    expect(deci.find((level) => level.code === 'L45')).toMatchObject({ label: 'Levels 4 & 5', competition_code: 'DECI_L45' });
   });
   it('rejects cross-organization and unknown organization values', () => {
     expect(resolveLevel('DEMI', 'Level 1', levels).code).toBeNull();

@@ -10,7 +10,8 @@ const libraryMigration = readFileSync(new URL('../../../supabase/migrations/2026
 
 describe('judge rubric preview and combined DECI Levels 4 & 5', () => {
   it('offers one active combined level and preserves the original legacy value', () => {
-    expect(api).toContain(".filter((level) => level.is_active !== false)");
+    expect(api).toContain('.filter(isSelectableLevel)');
+    expect(api).toContain("level.code === 'L4' || level.code === 'L5'");
     expect(combinedMigration).toContain("values ('L45', 'DECI', 'Levels 4 & 5', 'DECI_L45'");
     expect(combinedMigration).toContain("update public.levels set is_active = false where code in ('L4', 'L5')");
     expect(combinedMigration).toContain('legacy_level_code = level_code');

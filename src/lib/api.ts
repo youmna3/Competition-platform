@@ -83,6 +83,16 @@ export interface Reference {
 
 let referenceCache: Promise<Reference> | null = null;
 
+/**
+ * Keep retired DECI L4/L5 rows available to the database for historical
+ * relationships, but never expose them as selectable application categories.
+ * Labels and routing still come from the canonical reference rows themselves.
+ */
+export function isSelectableLevel(level: Level): boolean {
+  return level.is_active !== false
+    && !(level.organization === 'DECI' && (level.code === 'L4' || level.code === 'L5'));
+}
+
 export function loadReference(force = false): Promise<Reference> {
   if (!referenceCache || force) {
     referenceCache = (async () => {
@@ -94,7 +104,7 @@ export function loadReference(force = false): Promise<Reference> {
       return {
         governorates: requireArray(unwrap(g) as Governorate[] | null, 'Governorates'),
         competitions: requireArray(unwrap(c) as Competition[] | null, 'Competitions'),
-        levels: requireArray(unwrap(l) as Level[] | null, 'Levels').filter((level) => level.is_active !== false),
+        levels: requireArray(unwrap(l) as Level[] | null, 'Levels').filter(isSelectableLevel),
       };
     })().catch((e) => {
       referenceCache = null;
