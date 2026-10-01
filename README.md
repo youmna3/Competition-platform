@@ -85,7 +85,22 @@ npm run dev                     # http://localhost:5173
 
 Other scripts: `npm run build`, `npm test` (unit tests), `npm run typecheck`, `npm run verify:rubrics`.
 
-## 4. Deploy to Vercel
+## 4. Deployment
+
+### 4.1 Container Deployment (VPS & Caddy)
+
+The production SPA runs containerized on Ubuntu VPS (`187.6.165.32`) behind the existing Caddy reverse proxy (`bua_caddy`) at `https://ischool-competition.devhubai.net`.
+
+- **Branch Flow:**
+  - `main`: Active development branch. Pull requests trigger `.github/workflows/ci.yml`.
+  - `production`: Protected production branch. Merging a PR into `production` automatically triggers `.github/workflows/deploy.yml` which builds the container image, publishes to GHCR, and deploys to the server via SSH.
+- **Rollback:**
+  - Automated: In `.github/workflows/deploy.yml`, dispatch the workflow manually selecting `action: rollback`.
+  - CLI via SSH: Run `ssh -i <deploy_key> fady_id@187.6.165.32 "rollback"`. The server's `deploy.sh` script swaps back to the previous tag saved in `.previous_tag` and verifies container health.
+- **Database & Edge Functions:**
+  - Managed via `.github/workflows/supabase.yml`. Triggered manually with a choice between `migrations` (dry-run then apply) and `functions` (deploy edge function), gated by the `supabase-production` environment reviewer.
+
+### 4.2 Deploy to Vercel (Parallel Deployment)
 
 1. Push this folder to a Git repository (GitHub, GitLab or Bitbucket).
 2. In Vercel, choose **Add New → Project** and import the repository. The framework is detected as **Vite**, and `vercel.json` sets the build command, output folder, SPA rewrites and security headers.

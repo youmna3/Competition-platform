@@ -1,0 +1,66 @@
+name: Supabase Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Component to deploy'
+        required: true
+        type: choice
+        options:
+          - migrations
+          - functions
+
+jobs:
+  dry-run:
+    name: Dry Run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dry Run Migrations
+        if: ${{ github.event.inputs.target == 'migrations' }}
+        run: |
+          supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF || 'kdkwctsqfpwreebhftyn' }}"
+          supabase db push --dry-run
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+      - name: Functions Note
+        if: ${{ github.event.inputs.target == 'functions' }}
+        run: echo "Target is functions. Review apply job before proceeding."
+
+  apply:
+    name: Apply
+    needs: dry-run
+    runs-on: ubuntu-latest
+    environment: supabase-production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Apply Migrations
+        if: ${{ github.event.inputs.target == 'migrations' }}
+        run: |
+          supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF || 'kdkwctsqfpwreebhftyn' }}"
+          supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+      - name: Deploy Edge Functions
+        if: ${{ github.event.inputs.target == 'functions' }}
+        run: |
+          supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF || 'kdkwctsqfpwreebhftyn' }}"
+          supabase functions deploy admin-user-invitations --no-verify-jwt --use-api
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

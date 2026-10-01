@@ -1,0 +1,16 @@
+ischool-competition.devhubai.net {
+    encode gzip zstd
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        -Server
+    }
+    reverse_proxy ischool_competition_web:8080 {
+        lb_try_duration 15s
+        lb_try_interval 250ms
+    }
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}

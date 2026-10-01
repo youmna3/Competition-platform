@@ -1,0 +1,30 @@
+name: ischool_competition
+
+services:
+  web:
+    image: ghcr.io/youmna3/competition-platform:${IMAGE_TAG}
+    container_name: ischool_competition_web
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 100
+    networks:
+      - student_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  student_net:
+    external: true

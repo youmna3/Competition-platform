@@ -1,0 +1,112 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform: deploy or rollback'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - rollback
+      image_tag:
+        description: 'Existing image tag / 40-hex SHA to deploy. (If provided, skips build. Ignored for rollback.)'
+        required: false
+        type: string
+
+concurrency: deploy-production
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || (github.event.inputs.action != 'rollback' && (github.event.inputs.image_tag == '' || github.event.inputs.image_tag == null)) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  build:
+    name: Build & Push Image
+    needs: test
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || (github.event.inputs.action != 'rollback' && (github.event.inputs.image_tag == '' || github.event.inputs.image_tag == null)) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/youmna3/competition-platform:${{ github.sha }}
+            ghcr.io/youmna3/competition-platform:production
+          build-args: |
+            VITE_SUPABASE_URL=${{ vars.VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ vars.VITE_SUPABASE_ANON_KEY }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to VPS
+    needs: [test, build]
+    if: |
+      always() &&
+      !cancelled() &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute deployment via SSH
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTION: ${{ github.event.inputs.action || 'deploy' }}
+          INPUT_TAG: ${{ github.event.inputs.image_tag }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          if [ "$ACTION" = "rollback" ]; then
+            echo "Triggering rollback on server..."
+            ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "rollback"
+          else
+            TARGET_TAG="$INPUT_TAG"
+            if [ -z "$TARGET_TAG" ]; then
+              TARGET_TAG="$COMMIT_SHA"
+            fi
+            echo "Deploying target tag $TARGET_TAG..."
+            echo "$GH_TOKEN" | ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "deploy $TARGET_TAG"
+          fi
