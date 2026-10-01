@@ -4,7 +4,7 @@ import type { Evaluation, Profile, Team, TeamJudge } from './types';
 import { buildJudgeProgress, evaluationProgressStatus } from './judgeProgress';
 
 const profile = (id: string, name: string): Profile => ({
-  id, email: `${id}@example.com`, full_name: name, role: 'judge', status: 'approved', password_change_required: false,
+  id, email: `${id}@example.com`, full_name: name, role: 'judge', status: 'approved', password_change_required: false, governorate_code: null,
   reviewed_at: null, reviewed_by: null, created_at: '2026-01-01', updated_at: '2026-01-01',
 });
 const team = (id: string, organization: 'DEMI' | 'DECI'): Team => ({

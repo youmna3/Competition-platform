@@ -651,6 +651,23 @@ select tests.ok((judge_dashboard_summary()->>'total')::int=1,'assigned administr
 select admin_set_team_judges((select id from teams where team_code='T6'),array[tests.uid('j3')]);
 reset role;
 
+-- Governorate is administrator-managed and paged server-side.
+select tests.login('admin'); set role authenticated;
+update profiles set governorate_code='MNF' where id=tests.uid('j1');
+select tests.ok(
+  (admin_judges_page('{"governorate":"MNF","search":"judge1"}',1,20)->>'total')::int=1,
+  'judge account governorate is filterable through server pagination'
+);
+select tests.ok(exists(select 1 from audit_log where action='profile.governorate_changed' and entity_id=tests.uid('j1')::text),'governorate change is audited');
+reset role;
+select tests.login('j1'); set role authenticated;
+select tests.throws($$update profiles set governorate_code='CAI' where id=auth.uid()$$,'Only administrators','judge cannot change the protected governorate field');
+select tests.throws($$select admin_record_bulk_user(tests.uid('j1'),'judge1@example.com','Judge One','CAI')$$,'Administrator access required','judge cannot finalize bulk account creation');
+reset role;
+select tests.login('admin'); set role authenticated;
+update profiles set governorate_code=null where id=tests.uid('j1');
+reset role;
+
 -- -----------------------------------------------------------------------------
 -- 12. Administrator transactional team deletion
 -- -----------------------------------------------------------------------------

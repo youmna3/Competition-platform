@@ -10,6 +10,7 @@ export interface Profile {
   role: AppRole;
   status: AccountStatus;
   password_change_required: boolean;
+  governorate_code: string | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
   created_at: string;

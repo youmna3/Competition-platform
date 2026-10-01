@@ -28,6 +28,11 @@ export async function fetchAdminPage<T>(kind: 'teams' | 'judges' | 'invitations'
   return requirePage(data, `${kind} page`);
 }
 
+export async function fetchJudgesPage<T>(filters: Record<string, string>, page: number, pageSize: number): Promise<PageResult<T>> {
+  const data = unwrap(await supabase.rpc('admin_judges_page', { p_filters: filters, p_page: page, p_page_size: pageSize })) as PageResult<T>;
+  return requirePage(data, 'Judges page');
+}
+
 export interface JudgeAssignmentPageRow extends Team {
   level_label: string;
   governorate_name: string;
@@ -203,7 +208,7 @@ export async function fetchProfiles(): Promise<Profile[]> {
   return unwrap(await supabase.from('profiles').select('*').order('created_at', { ascending: false })) as Profile[];
 }
 
-export async function updateProfileAccess(id: string, patch: Partial<Pick<Profile, 'role' | 'status' | 'full_name'>>) {
+export async function updateProfileAccess(id: string, patch: Partial<Pick<Profile, 'role' | 'status' | 'full_name' | 'governorate_code'>>) {
   unwrap(await supabase.from('profiles').update(patch).eq('id', id).select().single());
 }
 
@@ -214,6 +219,8 @@ export async function fetchInvitations(): Promise<UserInvitation[]> {
 export type AccountManagementRequest =
   | { action: 'invite' | 'create-temporary'; fullName: string; email: string; teamIds: string[] }
   | { action: 'resend' | 'revoke'; invitationId: string }
+  | { action: 'bulk-check-users'; emails: string[] }
+  | { action: 'bulk-create-users'; users: { fullName: string; email: string; password: string; governorate: string }[] }
   | { action: 'complete-password-change'; password: string };
 
 export async function manageInvitation(body: AccountManagementRequest) {
