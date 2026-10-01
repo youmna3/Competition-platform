@@ -38,6 +38,7 @@ export default function TeamsPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkJudges, setBulkJudges] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<Team | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -117,14 +118,21 @@ export default function TeamsPage() {
 
   const doDelete = async () => {
     if (!confirmDelete) return;
+    setDeleting(true);
     try {
-      await deleteTeam(confirmDelete.id);
-      toast('success', 'Team deleted');
+      const result = await deleteTeam(confirmDelete.id);
+      toast('success', `Team deleted with ${result.evaluations_deleted} evaluation${result.evaluations_deleted === 1 ? '' : 's'} and ${result.assignments_deleted} assignment${result.assignments_deleted === 1 ? '' : 's'}`);
+      setSelected((current) => {
+        const next = new Set(current);
+        next.delete(confirmDelete.id);
+        return next;
+      });
       setConfirmDelete(null);
       await load();
     } catch (e) {
-      const msg = errorMessage(e);
-      toast('error', /foreign key|violates/i.test(msg) ? 'This team already has evaluations and cannot be deleted. Remove assignments instead.' : msg);
+      toast('error', errorMessage(e));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -324,13 +332,14 @@ export default function TeamsPage() {
 
       <Modal
         open={!!confirmDelete}
-        onClose={() => setConfirmDelete(null)}
-        title="Delete team?"
-        footer={<><Button variant="secondary" onClick={() => setConfirmDelete(null)}>Cancel</Button><Button variant="danger" onClick={doDelete}>Delete</Button></>}
+        onClose={() => !deleting && setConfirmDelete(null)}
+        title="Delete this team permanently?"
+        footer={<><Button variant="secondary" onClick={() => setConfirmDelete(null)} disabled={deleting}>Cancel</Button><Button variant="danger" onClick={doDelete} loading={deleting}>Delete Team</Button></>}
       >
-        <p className="text-sm text-slate-600">
-          Delete <strong>{confirmDelete?.name}</strong> (#{confirmDelete?.team_code})? Teams that already have evaluations are protected and cannot be deleted.
-        </p>
+        <div className="space-y-2 text-sm text-slate-600">
+          <p>Delete <strong>{confirmDelete?.name}</strong> (#{confirmDelete?.team_code}) permanently?</p>
+          <p className="font-medium text-rose-700">All assignments, evaluations, scores and related judging data for this team will also be deleted.</p>
+        </div>
       </Modal>
 
       <ImportTeamsModal open={importOpen} onClose={() => setImportOpen(false)} reference={ref} judges={approvedJudges} onImported={load} />

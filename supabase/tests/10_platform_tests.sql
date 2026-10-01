@@ -652,7 +652,106 @@ select admin_set_team_judges((select id from teams where team_code='T6'),array[t
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 12. Disabled judges lose access immediately
+-- 12. Administrator transactional team deletion
+-- -----------------------------------------------------------------------------
+select tests.login('admin'); set role authenticated;
+insert into teams(team_code,name,project_name,level_code,governorate_code) values
+  ('DELETE-EMPTY','Delete Empty','No judging data','G4','CAI'),
+  ('DELETE-DRAFT','Delete Draft','Draft judging data','G4','CAI'),
+  ('DELETE-SUBMITTED','Delete Submitted','Submitted judging data','G4','CAI');
+select admin_set_team_judges((select id from teams where team_code='DELETE-DRAFT'),array[tests.uid('j1')]);
+select admin_set_team_judges((select id from teams where team_code='DELETE-SUBMITTED'),array[tests.uid('j2')]);
+insert into ids values
+  ('delete-empty-team',(select id from teams where team_code='DELETE-EMPTY')),
+  ('delete-draft-team',(select id from teams where team_code='DELETE-DRAFT')),
+  ('delete-submitted-team',(select id from teams where team_code='DELETE-SUBMITTED'));
+reset role;
+
+select tests.login('j1'); set role authenticated;
+insert into ids values ('delete-draft-evaluation',start_evaluation((select v from ids where k='delete-draft-team')));
+select save_evaluation(
+  (select v from ids where k='delete-draft-evaluation'),
+  '[{"criterion_id":"DEMI_G4.S1.C1","score":4,"note":"draft judge note"}]'::jsonb,
+  '{"DEMI_G4.S1":"draft section note"}'::jsonb,
+  'draft overall note',
+  'Entered draft team',
+  'Entered draft project'
+);
+select tests.throws(
+  $$select admin_delete_team((select v from ids where k='delete-draft-team'))$$,
+  'Administrator access required',
+  'judge cannot call the team deletion RPC'
+);
+select tests.ok(exists(select 1 from teams where id=(select v from ids where k='delete-draft-team')),'failed judge deletion leaves the team intact');
+reset role;
+
+select tests.login('j2'); set role authenticated;
+insert into ids values ('delete-submitted-evaluation',start_evaluation((select v from ids where k='delete-submitted-team')));
+select save_evaluation(
+  (select v from ids where k='delete-submitted-evaluation'),null,null,null,
+  'Entered submitted team','Entered submitted project'
+);
+select submit_evaluation(
+  (select v from ids where k='delete-submitted-evaluation'),
+  tests.payload('DEMI_G4',tests.arr(20,5,0),array[5,5])
+);
+reset role;
+
+select tests.login('admin'); set role authenticated;
+select tests.ok(
+  (admin_delete_team((select v from ids where k='delete-empty-team'))->>'evaluations_deleted')::int=0,
+  'admin deletes a team with no evaluations'
+);
+select tests.ok(
+  (admin_delete_team((select v from ids where k='delete-draft-team'))->>'draft_evaluations_deleted')::int=1,
+  'admin deletes a team with a saved draft'
+);
+select tests.ok(
+  (admin_delete_team((select v from ids where k='delete-submitted-team'))->>'submitted_evaluations_deleted')::int=1,
+  'admin deletes a team with a submitted evaluation despite the submitted-score lock'
+);
+select tests.ok(not exists(select 1 from teams where id in (
+  (select v from ids where k='delete-empty-team'),
+  (select v from ids where k='delete-draft-team'),
+  (select v from ids where k='delete-submitted-team')
+)),'all three selected teams are removed');
+select tests.ok(not exists(select 1 from team_judges where team_id in (
+  (select v from ids where k='delete-draft-team'),
+  (select v from ids where k='delete-submitted-team')
+)),'deleted team assignments are removed');
+select tests.ok(not exists(select 1 from evaluations where id in (
+  (select v from ids where k='delete-draft-evaluation'),
+  (select v from ids where k='delete-submitted-evaluation')
+)),'draft and submitted evaluation rows are removed');
+select tests.ok(not exists(select 1 from evaluation_scores where evaluation_id in (
+  (select v from ids where k='delete-draft-evaluation'),
+  (select v from ids where k='delete-submitted-evaluation')
+)),'all scores and judge notes for deleted evaluations are removed');
+select tests.ok(exists(select 1 from evaluations where id=(select v from ids where k='e1')),'unrelated historical evaluation remains unchanged');
+select tests.ok((select count(*) from audit_log where action='team.deleted_cascade' and entity_id in (
+  (select v::text from ids where k='delete-empty-team'),
+  (select v::text from ids where k='delete-draft-team'),
+  (select v::text from ids where k='delete-submitted-team')
+))=3,'each deletion preserves one cascade audit snapshot');
+select tests.ok(exists(
+  select 1 from audit_log
+  where action='team.deleted_cascade'
+    and entity_id=(select v::text from ids where k='delete-submitted-team')
+    and actor_id=tests.uid('admin')
+    and occurred_at is not null
+    and details->>'team_id'='DELETE-SUBMITTED'
+    and details->>'team_name'='Delete Submitted'
+    and details->>'organization'='DEMI'
+    and details->>'level_code'='G4'
+    and (details->>'assignments_deleted')::int=1
+    and (details->>'evaluations_deleted')::int=1
+    and (details->>'submitted_evaluations_deleted')::int=1
+    and (details->>'scores_deleted')::int=22
+),'team deletion audit records identity, administrator, timestamp and dependency counts');
+reset role;
+
+-- -----------------------------------------------------------------------------
+-- 13. Disabled judges lose access immediately
 -- -----------------------------------------------------------------------------
 select tests.login('admin'); set role authenticated;
 update profiles set status = 'disabled' where email = 'judge3@example.com';
@@ -664,13 +763,13 @@ select tests.throws($$select start_evaluation((select id from public.teams where
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 13. Hard constraints
+-- 14. Hard constraints
 -- -----------------------------------------------------------------------------
 select tests.throws($$insert into evaluations (team_id, judge_id, template_id) select team_id, judge_id, template_id from evaluations limit 1$$, 'evaluations_team_judge_key', 'unique (team, judge) enforced');
 select tests.throws($$update evaluations set status = 'submitted', submitted_at = now(), core_scored_count = 3 where id = (select v from ids where k='e2') $$, 'submitted_complete', 'check constraint forbids incomplete submitted rows');
 
 -- -----------------------------------------------------------------------------
--- 14. Representative pagination volume (scratch database only)
+-- 15. Representative pagination volume (scratch database only)
 -- -----------------------------------------------------------------------------
 reset role;
 select tests.logout();

@@ -279,8 +279,18 @@ export async function saveTeam(team: Partial<Team> & Pick<Team, 'team_code' | 'n
   return unwrap(await supabase.from('teams').insert(payload).select().single()) as Team;
 }
 
-export async function deleteTeam(id: string) {
-  unwrap(await supabase.from('teams').delete().eq('id', id));
+export interface TeamDeletionResult {
+  team_id: string;
+  team_uuid: string;
+  assignments_deleted: number;
+  evaluations_deleted: number;
+  draft_evaluations_deleted: number;
+  submitted_evaluations_deleted: number;
+  scores_deleted: number;
+}
+
+export async function deleteTeam(id: string): Promise<TeamDeletionResult> {
+  return unwrap(await supabase.rpc('admin_delete_team', { p_team_id: id })) as TeamDeletionResult;
 }
 
 export async function setTeamJudges(teamId: string, judgeIds: string[]) {
