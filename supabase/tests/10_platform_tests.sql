@@ -226,6 +226,10 @@ create temp table ids (k text primary key, v uuid);
 grant all on ids to authenticated, anon;
 insert into ids values ('e1', start_evaluation((select id from teams where team_code='T1')));
 select tests.ok(start_evaluation((select id from teams where team_code='T1')) = (select v from ids where k='e1'), 'start_evaluation is idempotent (same evaluation id)');
+select tests.ok((select entered_team_name='' and entered_project_name='' from evaluations where id=(select v from ids where k='e1')),'new rubric name fields start empty');
+select tests.throws($$select submit_evaluation((select v from ids where k='e1'),null,null,null,'','')$$,'Team Name is required','blank rubric names cannot be submitted');
+select save_evaluation((select v from ids where k='e1'),null,null,null,'Judge-entered Team One','Judge-entered Water Saver');
+select tests.ok((select entered_team_name='Judge-entered Team One' and entered_project_name='Judge-entered Water Saver' from evaluations where id=(select v from ids where k='e1')),'rubric names persist with the draft');
 select tests.ok((select count(*) from evaluations) = 1, 'only one evaluation row');
 select tests.ok((select count(*) from evaluation_scores where evaluation_id = (select v from ids where k='e1')) = 22, 'G4 evaluation has 20 core + 2 bonus rows');
 select tests.throws($$select start_evaluation((select id from public.teams where team_code='T4'))$$, 'not an approved judge', 'cannot evaluate an unassigned team (hidden id)');
@@ -247,6 +251,7 @@ select tests.throws($$update evaluations set core_total = 100$$, 'permission den
 
 -- complete: 85 core, bonus 4 (one bonus row left blank = optional)
 select submit_evaluation((select v from ids where k='e1'), tests.payload('DEMI_G4', tests.arr(15, 2, 5), array[4, null]));
+select tests.ok((select entered_team_name='Judge-entered Team One' and entered_project_name='Judge-entered Water Saver' from evaluations where id=(select v from ids where k='e1')),'submitted evaluation retains entered names');
 select tests.ok((select core_total from evaluations where id=(select v from ids where k='e1')) = 85, 'judge 1 core = 85');
 select tests.ok((select bonus_total from evaluations where id=(select v from ids where k='e1')) = 4, 'judge 1 bonus = 4 (kept separate)');
 select tests.ok((select status::text from evaluations where id=(select v from ids where k='e1')) = 'submitted', 'submitted');
@@ -283,6 +288,7 @@ reset role;
 -- judge 2 submits 95 on T1
 select tests.login('j2'); set role authenticated;
 insert into ids values ('e2', start_evaluation((select id from teams where team_code='T1')));
+select save_evaluation((select v from ids where k='e2'),null,null,null,'Second entered team','Second entered project');
 select tests.ok((select v from ids where k='e2') <> (select v from ids where k='e1'), 'separate evaluation per judge');
 select submit_evaluation((select v from ids where k='e2'), tests.payload('DEMI_G4', tests.arr(15, 4, 5), array[5, 5]));
 select tests.ok((select core_total from evaluations where id=(select v from ids where k='e2')) = 95, 'judge 2 core = 95');
@@ -293,18 +299,22 @@ reset role;
 -- -----------------------------------------------------------------------------
 select tests.login('j1'); set role authenticated;
 insert into ids values ('e3', start_evaluation((select id from teams where team_code='T2')));
+select save_evaluation((select v from ids where k='e3'),null,null,null,'Entered T2','Entered P2');
 select tests.throws($$select submit_evaluation((select v from ids where k='e3'), tests.payload('DEMI_G4', tests.arr(18, 0, 0) || array[null,null]::int[], null))$$, 'incomplete: 2 core', 'two blank core rows block submission');
 reset role;
 select tests.ok((select status::text from evaluations where id=(select v from ids where k='e3')) = 'draft', 'sanity: payload with 2 blanks not submitted');
 select tests.login('j1'); set role authenticated;
 select submit_evaluation((select v from ids where k='e3'), tests.payload('DEMI_G4', tests.arr(10, 4, 10), null)); -- 50+40 = 90
 insert into ids values ('e4', start_evaluation((select id from teams where team_code='T3')));
+select save_evaluation((select v from ids where k='e4'),null,null,null,'Entered T3 A','Entered P3 A');
 select submit_evaluation((select v from ids where k='e4'), tests.payload('DECI_L45', tests.arr(16, 4, 4), array[5,5,5])); -- 96, bonus 15
 reset role;
 select tests.login('j2'); set role authenticated;
 insert into ids values ('e5', start_evaluation((select id from teams where team_code='T3')));
+select save_evaluation((select v from ids where k='e5'),null,null,null,'Entered T3 B','Entered P3 B');
 select submit_evaluation((select v from ids where k='e5'), tests.payload('DECI_L45', tests.arr(10, 3, 10), array[1,null,null])); -- 80, bonus 1
 insert into ids values ('e6', start_evaluation((select id from teams where team_code='T4')));
+select save_evaluation((select v from ids where k='e6'),null,null,null,'Entered T4','Entered P4');
 select submit_evaluation((select v from ids where k='e6'), tests.payload('DECI_L45', tests.arr(12, 4, 8), null)); -- 92
 select tests.ok((select count(*) from evaluation_scores where evaluation_id=(select v from ids where k='e6')) = 23, 'L4&5 evaluation has 20 core + 3 bonus rows');
 reset role;
@@ -419,11 +429,13 @@ reset role;
 
 select tests.login('j1'); set role authenticated;
 insert into ids values ('xorg-demi', start_evaluation((select id from teams where lower(team_code)='xorg' and organization='DEMI')));
+select save_evaluation((select v from ids where k='xorg-demi'),null,null,null,'Entered XORG DEMI','Entered XORG project');
 select submit_evaluation((select v from ids where k='xorg-demi'), tests.payload('DEMI_G4', tests.arr(20,5,0), array[5,5]));
 reset role;
 
 select tests.login('j2'); set role authenticated;
 insert into ids values ('xorg-deci', start_evaluation((select id from teams where lower(team_code)='xorg' and organization='DECI')));
+select save_evaluation((select v from ids where k='xorg-deci'),null,null,null,'Entered XORG DECI','Entered XORG project');
 select submit_evaluation((select v from ids where k='xorg-deci'), tests.payload('DECI_L1', tests.arr(10,3,10), array[1,1]));
 reset role;
 
@@ -437,6 +449,7 @@ reset role;
 -- -----------------------------------------------------------------------------
 select tests.login('j1'); set role authenticated;
 insert into ids values ('e7', start_evaluation((select id from teams where team_code='N3')));
+select save_evaluation((select v from ids where k='e7'),null,null,null,'Entered Grade 6 A','Entered G6 project A');
 select tests.ok((select count(*) from evaluation_scores where evaluation_id = (select v from ids where k='e7')) = 23, 'G6 evaluation has 20 core + 3 bonus rows');
 select submit_evaluation((select v from ids where k='e7'), tests.payload('DEMI_G6', tests.arr(15, 2, 5), array[5,5,5]));
 reset role;
@@ -444,6 +457,7 @@ reset role;
 select tests.login('j2'); set role authenticated;
 select tests.ok((select count(*) from evaluations where team_id = (select id from teams where team_code='N3')) = 0, 'G6 judge cannot see the other judge evaluation');
 insert into ids values ('e8', start_evaluation((select id from teams where team_code='N3')));
+select save_evaluation((select v from ids where k='e8'),null,null,null,'Entered Grade 6 B','Entered G6 project B');
 select submit_evaluation((select v from ids where k='e8'), tests.payload('DEMI_G6', tests.arr(15, 4, 5), array[5,null,null]));
 select tests.ok((select count(*) from evaluations where team_id = (select id from teams where team_code='N3')) = 1, 'G6 judge sees only their independent evaluation');
 reset role;
@@ -587,6 +601,36 @@ select tests.ok(
 reset role;
 
 select tests.login('admin'); set role authenticated;
+insert into teams(team_code,name,project_name,level_code,governorate_code)
+values('ASSIGN-ONLY','Assignment Only','No Evaluation Yet','G4','CAI');
+select admin_set_team_judges((select id from teams where team_code='ASSIGN-ONLY'),array[tests.uid('j1')]);
+reset role;
+select tests.login('j1'); set role authenticated;
+select tests.ok(
+  (judge_assignment_page('{"search":"ASSIGN-ONLY"}',1,20)->>'total')::int=1,
+  'new assignment appears in My Evaluations without an evaluation row'
+);
+select tests.ok(
+  judge_assignment_page('{"search":"ASSIGN-ONLY"}',1,20)->'rows'->0->'evaluation_id'='null'::jsonb,
+  'assignment without evaluation is Not Started data'
+);
+select tests.ok(
+  (judge_dashboard_summary()->>'total')::int=(select count(*) from team_judges where judge_id=auth.uid()),
+  'My Evaluations summary exactly matches the signed-in evaluator assignments'
+);
+reset role;
+select tests.login('j2'); set role authenticated;
+select tests.ok(
+  (judge_assignment_page('{"search":"ASSIGN-ONLY"}',1,20)->>'total')::int=0,
+  'another judge cannot see the assignment'
+);
+reset role;
+select tests.login('admin'); set role authenticated;
+select admin_set_team_judges((select id from teams where team_code='ASSIGN-ONLY'),'{}'::uuid[]);
+delete from teams where team_code='ASSIGN-ONLY';
+reset role;
+
+select tests.login('admin'); set role authenticated;
 select admin_set_team_judges(
   (select id from teams where team_code='T6'),
   array[tests.uid('j3'),tests.uid('admin')]
@@ -603,6 +647,7 @@ select tests.ok(
   exists(select 1 from jsonb_array_elements(admin_assigned_evaluator_choices()) x where x->>'id'=tests.uid('admin')::text),
   'assigned administrator appears in the evaluator filter'
 );
+select tests.ok((judge_dashboard_summary()->>'total')::int=1,'assigned administrator sees the team in My Evaluations');
 select admin_set_team_judges((select id from teams where team_code='T6'),array[tests.uid('j3')]);
 reset role;
 

@@ -80,8 +80,8 @@ export default function AdminEvaluationView() {
         template={template}
         scale={scale}
         header={{
-          team: `${team.name} / #${team.team_code}`,
-          project: team.project_name,
+          team: evaluation.entered_team_name,
+          project: evaluation.entered_project_name,
           judge: judge?.full_name || judge?.email || '',
           date: new Date(evaluation.submitted_at ?? evaluation.updated_at).toLocaleDateString(),
         }}

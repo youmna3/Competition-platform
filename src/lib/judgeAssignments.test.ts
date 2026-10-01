@@ -11,6 +11,7 @@ const teams: Team[] = Array.from({ length: 6 }, (_, index) => ({
 const evaluation = (status: 'draft' | 'submitted'): Evaluation => ({
   id: 'e1', team_id: 't1', judge_id: 'judge-a', template_id: 'DEMI_G4', status, core_total: 10, bonus_total: 0,
   core_scored_count: status === 'submitted' ? 20 : 2, core_criteria_count: 20, section_notes: {}, overall_notes: '',
+  entered_team_name: 'Entered team', entered_project_name: 'Entered project',
   submitted_at: status === 'submitted' ? '2026-01-02' : null, reopened_count: 0, created_at: '2026-01-01', updated_at: '2026-01-02',
 });
 
@@ -51,6 +52,7 @@ describe('judge dashboard assignments', () => {
     expect(dashboard).toContain("const ORG_INFO");
     expect(dashboard).toContain("(['DEMI', 'DECI'] as Organization[])");
     expect(dashboard).not.toContain('buildJudgeAssignments');
+    expect(dashboard).toContain('subscribeToResults');
     expect(tracker).toContain('fetchJudgeAssignmentPage');
     expect(tracker).toContain('<Pagination');
     expect(tracker).toContain('All governorates');
@@ -58,5 +60,13 @@ describe('judge dashboard assignments', () => {
     expect(app).toContain('path="/judge/rubrics" element={<RequireAuth judge>');
     expect(layout).toContain("label: 'Assigned Teams'");
     expect(layout).toContain("label: 'Rubrics'");
+  });
+
+  it('keeps paged assignment RPCs scoped to auth.uid without excluding administrators',()=>{
+    const migration=readFileSync(new URL('../../supabase/migrations/20261001000002_fix_my_evaluations_assignments.sql',import.meta.url),'utf8');
+    expect(migration).toContain('where tj.judge_id=auth.uid()');
+    expect(migration).toContain('left join public.evaluations');
+    expect(migration).not.toContain('not public.is_admin()');
+    expect(migration).not.toContain('or public.is_admin()');
   });
 });

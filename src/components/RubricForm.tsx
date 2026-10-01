@@ -19,6 +19,8 @@ export interface RubricFormProps {
   onNote?: (criterionId: string, value: string) => void;
   onSectionNote?: (sectionId: string, value: string) => void;
   onOverallNote?: (value: string) => void;
+  onTeamName?: (value: string) => void;
+  onProjectName?: (value: string) => void;
 }
 
 export default function RubricForm(props: RubricFormProps) {
@@ -35,17 +37,15 @@ export default function RubricForm(props: RubricFormProps) {
           <h2 className="text-xl font-bold text-brand-950">{template.title}</h2>
           <p className="text-sm text-slate-500">{template.subtitle}</p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ['Team Name / #', header.team],
-              ['Project Name', header.project],
-              ['Judge Name', header.judge],
-              ['Date', header.date],
-            ].map(([k, v]) => (
-              <div key={k} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{k}</dt>
-                <dd className="truncate text-sm font-medium text-slate-900" title={v}>{v}</dd>
-              </div>
-            ))}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team Name</dt>
+              <dd>{props.readOnly?<span className="block truncate text-sm font-medium text-slate-900" title={header.team}>{header.team||'—'}</span>:<Input aria-label="Team Name" required value={header.team} maxLength={200} placeholder="Enter team name" onChange={event=>props.onTeamName?.(event.target.value)}/>}</dd>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Project Name</dt>
+              <dd>{props.readOnly?<span className="block truncate text-sm font-medium text-slate-900" title={header.project}>{header.project||'—'}</span>:<Input aria-label="Project Name" required value={header.project} maxLength={200} placeholder="Enter project name" onChange={event=>props.onProjectName?.(event.target.value)}/>}</dd>
+            </div>
+            {[["Judge Name",header.judge],["Date",header.date]].map(([key,value])=><div key={key} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"><dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{key}</dt><dd className="truncate text-sm font-medium text-slate-900" title={value}>{value}</dd></div>)}
           </dl>
         </div>
       </Card>

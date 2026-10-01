@@ -352,6 +352,8 @@ export async function saveEvaluation(
   scores: ScoreChange[] | null,
   sectionNotes: Record<string, string> | null,
   overallNotes: string | null,
+  teamName: string | null,
+  projectName: string | null,
 ): Promise<Evaluation> {
   return unwrap(
     await supabase.rpc('save_evaluation', {
@@ -359,6 +361,8 @@ export async function saveEvaluation(
       p_scores: scores,
       p_section_notes: sectionNotes,
       p_overall_notes: overallNotes,
+      p_team_name: teamName,
+      p_project_name: projectName,
     }),
   ) as Evaluation;
 }
@@ -368,6 +372,8 @@ export async function submitEvaluation(
   scores: ScoreChange[] | null,
   sectionNotes: Record<string, string> | null,
   overallNotes: string | null,
+  teamName: string,
+  projectName: string,
 ): Promise<Evaluation> {
   return unwrap(
     await supabase.rpc('submit_evaluation', {
@@ -375,6 +381,8 @@ export async function submitEvaluation(
       p_scores: scores,
       p_section_notes: sectionNotes,
       p_overall_notes: overallNotes,
+      p_team_name: teamName,
+      p_project_name: projectName,
     }),
   ) as Evaluation;
 }

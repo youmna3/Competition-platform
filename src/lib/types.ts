@@ -140,6 +140,8 @@ export interface Evaluation {
   core_criteria_count: number;
   section_notes: Record<string, string>;
   overall_notes: string;
+  entered_team_name: string;
+  entered_project_name: string;
   submitted_at: string | null;
   reopened_count: number;
   created_at: string;

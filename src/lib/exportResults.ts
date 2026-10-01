@@ -99,7 +99,7 @@ export async function exportAllResults(input: FullExportInput) {
     const sc = scoresByEval.get(e.id) ?? new Map();
     const row: Record<string, unknown> = {
       organization: r?.organization, competition: r?.competition_label, level: r?.level_label,
-      governorate: r?.governorate_name, team_code: t?.team_code, team_name: t?.name, project_name: t?.project_name,
+      governorate: r?.governorate_name, team_code: t?.team_code, team_name: e.entered_team_name, project_name: e.entered_project_name,
       judge_name: judge.get(e.judge_id)?.full_name, judge_email: judge.get(e.judge_id)?.email,
       rubric: e.template_id, status: e.status, core_total: e.core_total, bonus_total: e.bonus_total,
       scored: `${e.core_scored_count}/${e.core_criteria_count}`,

@@ -15,6 +15,7 @@ const team = (id: string, organization: 'DEMI' | 'DECI'): Team => ({
 const evaluation = (id: string, teamId: string, judgeId: string, status: 'draft' | 'submitted'): Evaluation => ({
   id, team_id: teamId, judge_id: judgeId, template_id: 'DEMI_G4', status, core_total: 0, bonus_total: 0,
   core_scored_count: status === 'submitted' ? 20 : 1, core_criteria_count: 20, section_notes: {}, overall_notes: '',
+  entered_team_name: 'Entered team', entered_project_name: 'Entered project',
   submitted_at: status === 'submitted' ? '2026-01-02' : null, reopened_count: 0, created_at: '2026-01-01', updated_at: '2026-01-02',
 });
 

@@ -149,10 +149,10 @@ export default function ResultsPage() {
                             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
                               <table className="w-full text-xs">
                                 <thead className="bg-slate-50 text-left font-semibold uppercase tracking-wide text-slate-500">
-                                  <tr><th className="px-3 py-2">Judge</th><th className="px-3 py-2">Status</th><th className="px-3 py-2 text-right">Core</th><th className="px-3 py-2 text-right">Bonus</th><th className="px-3 py-2">Rows</th><th className="px-3 py-2">Submitted</th><th className="px-3 py-2" /></tr>
+                                  <tr><th className="px-3 py-2">Judge</th><th className="px-3 py-2">Entered team / project</th><th className="px-3 py-2">Status</th><th className="px-3 py-2 text-right">Core</th><th className="px-3 py-2 text-right">Bonus</th><th className="px-3 py-2">Rows</th><th className="px-3 py-2">Submitted</th><th className="px-3 py-2" /></tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                  {judgeIds.length === 0 && <tr><td colSpan={7} className="px-3 py-3 text-slate-500">No judges assigned.</td></tr>}
+                                  {judgeIds.length === 0 && <tr><td colSpan={8} className="px-3 py-3 text-slate-500">No judges assigned.</td></tr>}
                                   {judgeIds.map((jid) => {
                                     const e = teamEvals.find((x) => x.judge_id === jid);
                                     const p = profileMap.get(jid);
@@ -161,6 +161,7 @@ export default function ResultsPage() {
                                       <tr key={jid}>
                                         <td className="px-3 py-2"><p className="font-medium text-slate-900">{p?.full_name || p?.email}</p><p className="text-slate-500">{p?.email}</p>
                                           {!isAssigned && <Badge tone="slate" className="mt-1">No longer assigned — not counted</Badge>}</td>
+                                        <td className="px-3 py-2"><p className="font-medium text-slate-900">{e?.entered_team_name||'—'}</p><p className="text-slate-500">{e?.entered_project_name||'—'}</p></td>
                                         <td className="px-3 py-2">{!e ? <Badge>Not started</Badge> : e.status === 'submitted' ? <Badge tone="green">Submitted</Badge> : <Badge tone="amber">Draft</Badge>}{e && e.reopened_count > 0 && <span className="ml-1 text-slate-400">reopened ×{e.reopened_count}</span>}</td>
                                         <td className="px-3 py-2 text-right font-semibold tabular-nums">{e ? `${e.core_total}/100` : '—'}</td>
                                         <td className="px-3 py-2 text-right tabular-nums text-amber-700">{e ? e.bonus_total : '—'}</td>

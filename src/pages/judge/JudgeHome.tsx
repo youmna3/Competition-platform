@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, BookOpen, CheckCircle2, ChevronLeft, CircleDashed, ClipboardList, MapPin, PencilLine } from 'lucide-react';
-import { fetchEvaluationsForTeams, fetchJudgeAssignmentPage, fetchJudgeDashboardSummary, loadReference, type JudgeDashboardSummary, type Reference } from '@/lib/api';
+import { fetchEvaluationsForTeams, fetchJudgeAssignmentPage, fetchJudgeDashboardSummary, loadReference, subscribeToResults, type JudgeDashboardSummary, type Reference } from '@/lib/api';
 import { errorMessage } from '@/lib/supabase';
 import type { Evaluation, Organization, Team } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
@@ -26,6 +26,7 @@ export default function JudgeHome() {
   const [page, setPage] = useState(1), [pageSize, setPageSize] = useState(20), [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshKey,setRefreshKey]=useState(0);
 
   useEffect(() => {
     (async () => {
@@ -42,7 +43,8 @@ export default function JudgeHome() {
         setLoading(false);
       }
     })();
-  }, [profile?.id, comp, page, pageSize]);
+  }, [profile?.id, comp, page, pageSize,refreshKey]);
+  useEffect(()=>subscribeToResults(()=>setRefreshKey(value=>value+1)),[]);
 
   const levelMap = useMemo(() => new Map(ref?.levels.map((l) => [l.code, l]) ?? []), [ref]);
   const govMap = useMemo(() => new Map(ref?.governorates.map((g) => [g.code, g.name]) ?? []), [ref]);

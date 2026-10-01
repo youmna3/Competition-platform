@@ -17,11 +17,15 @@ describe('evaluation draft recovery', () => {
       scores: new Map([['criterion-1', { criterion_id: 'criterion-1', score: 4, note: 'Recovered note' }]]),
       sections: { section1: 'Recovered section' },
       overall: 'Recovered overall',
+      teamName: 'Recovered team',
+      projectName: 'Recovered project',
     });
     expect(loadRecoverableDraft('evaluation-1')).toMatchObject({
       scores: [{ criterion_id: 'criterion-1', score: 4, note: 'Recovered note' }],
       sections: { section1: 'Recovered section' },
       overall: 'Recovered overall',
+      teamName: 'Recovered team',
+      projectName: 'Recovered project',
     });
   });
 
@@ -33,5 +37,11 @@ describe('evaluation draft recovery', () => {
     });
     clearRecoverableDraft('evaluation-1');
     expect(loadRecoverableDraft('evaluation-1')).toBeNull();
+  });
+
+  it('recovers team and project names even before any score is entered',()=>{
+    vi.stubGlobal('localStorage',storage);
+    storeRecoverableDraft('evaluation-names',{scores:new Map(),sections:{},overall:null,teamName:'Manual team',projectName:'Manual project'});
+    expect(loadRecoverableDraft('evaluation-names')).toMatchObject({teamName:'Manual team',projectName:'Manual project'});
   });
 });

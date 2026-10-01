@@ -18,9 +18,11 @@ interface Pending {
   scores: Map<string, ScoreChange>;
   sections: Record<string, string>;
   overall: string | null;
+  teamName: string | null;
+  projectName: string | null;
 }
-const emptyPending = (): Pending => ({ scores: new Map(), sections: {}, overall: null });
-const isEmpty = (p: Pending) => p.scores.size === 0 && Object.keys(p.sections).length === 0 && p.overall === null;
+const emptyPending = (): Pending => ({ scores: new Map(), sections: {}, overall: null, teamName: null, projectName: null });
+const isEmpty = (p: Pending) => p.scores.size === 0 && Object.keys(p.sections).length === 0 && p.overall === null && p.teamName === null && p.projectName === null;
 
 export default function EvaluationPage() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -36,6 +38,8 @@ export default function EvaluationPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [sectionNotes, setSectionNotes] = useState<Record<string, string>>({});
   const [overall, setOverall] = useState('');
+  const [teamName,setTeamName]=useState('');
+  const [projectName,setProjectName]=useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -94,8 +98,12 @@ export default function EvaluationPage() {
         const recoveredSections = recovered?.sections ?? {};
         pending.current.sections = recoveredSections;
         pending.current.overall = recovered?.overall ?? null;
+        pending.current.teamName=recovered?.teamName??null;
+        pending.current.projectName=recovered?.projectName??null;
         setSectionNotes({ ...(ev.evaluation.section_notes ?? {}), ...recoveredSections });
         setOverall(recovered?.overall ?? ev.evaluation.overall_notes ?? '');
+        setTeamName(recovered?.teamName??ev.evaluation.entered_team_name??'');
+        setProjectName(recovered?.projectName??ev.evaluation.entered_project_name??'');
         if (recovered) {
           recoveredPending.current = true;
           setSaveState('pending');
@@ -127,6 +135,8 @@ export default function EvaluationPage() {
           batch.scores.size ? [...batch.scores.values()] : null,
           Object.keys(batch.sections).length ? batch.sections : null,
           batch.overall,
+          batch.teamName,
+          batch.projectName,
         );
         setEvaluation(row);
         setLastSaved(new Date());
@@ -139,6 +149,8 @@ export default function EvaluationPage() {
         batch.scores.forEach((v, k) => { if (!cur.scores.has(k)) cur.scores.set(k, v); });
         for (const [k, v] of Object.entries(batch.sections)) if (!(k in cur.sections)) cur.sections[k] = v;
         if (cur.overall === null) cur.overall = batch.overall;
+        if(cur.teamName===null)cur.teamName=batch.teamName;
+        if(cur.projectName===null)cur.projectName=batch.projectName;
         storeRecoverableDraft(evalId, cur);
         const msg = errorMessage(e);
         setSaveError(msg);
@@ -222,7 +234,11 @@ export default function EvaluationPage() {
     schedule(1000);
   }, [evalId, schedule]);
 
+  const onTeamName=useCallback((value:string)=>{setTeamName(value);pending.current.teamName=value;if(evalId)storeRecoverableDraft(evalId,pending.current);schedule(500)},[evalId,schedule]);
+  const onProjectName=useCallback((value:string)=>{setProjectName(value);pending.current.projectName=value;if(evalId)storeRecoverableDraft(evalId,pending.current);schedule(500)},[evalId,schedule]);
+
   const totals = useMemo(() => (template ? computeTotals(template, scores) : null), [template, scores]);
+  const namesComplete=Boolean(teamName.trim()&&projectName.trim());
 
   const jumpToMissing = () => {
     setShowMissing(true);
@@ -232,7 +248,7 @@ export default function EvaluationPage() {
 
   // ------------------------------------------------------------------ submit
   const doSubmit = async () => {
-    if (!evaluation || !template || !totals?.complete || submitting) return;
+    if (!evaluation || !template || !totals?.complete || !namesComplete || submitting) return;
     setSubmitting(true);
     try {
       if (timer.current) clearTimeout(timer.current);
@@ -241,7 +257,7 @@ export default function EvaluationPage() {
       const all: ScoreChange[] = [...template.sections, ...(template.bonus ? [template.bonus] : [])]
         .flatMap((s) => s.criteria)
         .map((c) => ({ criterion_id: c.id, score: (scores[c.id] ?? null) as number | null, note: notes[c.id] ?? '' }));
-      const row = await submitEvaluation(evaluation.id, all, sectionNotes, overall);
+      const row = await submitEvaluation(evaluation.id, all, sectionNotes, overall,teamName,projectName);
       pending.current = emptyPending();
       clearRecoverableDraft(evaluation.id);
       setEvaluation(row);
@@ -291,8 +307,8 @@ export default function EvaluationPage() {
         template={template}
         scale={scale}
         header={{
-          team: `${team.name} / #${team.team_code}`,
-          project: team.project_name,
+          team: teamName,
+          project: projectName,
           judge: profile?.full_name || profile?.email || '',
           date: new Date(evaluation.submitted_at ?? evaluation.updated_at).toLocaleDateString(),
         }}
@@ -306,6 +322,8 @@ export default function EvaluationPage() {
         onNote={onNote}
         onSectionNote={onSectionNote}
         onOverallNote={onOverallNote}
+        onTeamName={onTeamName}
+        onProjectName={onProjectName}
       />
 
       {/* sticky summary bar */}
@@ -326,6 +344,7 @@ export default function EvaluationPage() {
               <span>{totals.coreScored}/{totals.coreCount} core rows</span>
               {!locked && <SaveIndicator state={saveState} lastSaved={lastSaved} error={saveError} />}
             </div>
+            {!locked&&!namesComplete&&<p className="mb-1 text-xs font-medium text-rose-600">Team Name and Project Name are required before submission.</p>}
             <ProgressBar value={totals.coreScored} max={totals.coreCount} tone={totals.complete ? 'green' : 'blue'} />
           </div>
           {locked ? (
@@ -337,9 +356,9 @@ export default function EvaluationPage() {
               )}
               <Button
                 variant="accent"
-                onClick={() => (totals.complete ? setConfirmOpen(true) : jumpToMissing())}
-                disabled={!totals.complete}
-                title={totals.complete ? 'Submit evaluation' : `${totals.coreCount - totals.coreScored} core rows still need a score`}
+                onClick={() => (totals.complete&&namesComplete ? setConfirmOpen(true) : jumpToMissing())}
+                disabled={!totals.complete||!namesComplete}
+                title={!namesComplete?'Enter Team Name and Project Name before submitting':totals.complete ? 'Submit evaluation' : `${totals.coreCount - totals.coreScored} core rows still need a score`}
               >
                 <Send size={16} /> Submit
               </Button>
@@ -360,7 +379,7 @@ export default function EvaluationPage() {
         }
       >
         <p className="text-sm text-slate-600">
-          You are submitting your evaluation of <strong>{team.name}</strong> (#{team.team_code}). After submission the scores are locked.
+          You are submitting your evaluation of <strong>{teamName}</strong> (assigned Team ID #{team.team_code}), project <strong>{projectName}</strong>. After submission the scores are locked.
         </p>
         <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
           <table className="w-full text-sm">
